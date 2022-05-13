@@ -32,6 +32,11 @@ class Dataset(object):
 
         return archive_file, self.content_dir
 
+    def download_http(self, url):
+        os.makedirs(self.content_dir, exist_ok=True)
+        local_file = os.path.join(self.content_dir, 'file.c')
+        urllib.request.urlretrieve(url, local_file)
+
     def clone_git(self, uri):
         if not os.path.isdir(self.content_dir):
             Repo.clone_from(uri, self.content_dir)

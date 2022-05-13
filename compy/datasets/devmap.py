@@ -3,6 +3,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from compy.datasets import dataset
+from compy.representations.extractors import ClangDriver
 
 
 class OpenCLDevmapDataset(dataset.Dataset):
@@ -15,6 +16,9 @@ class OpenCLDevmapDataset(dataset.Dataset):
         self.additional_include_dirs = [
             os.path.join(self.content_dir, "support/libclc")
         ]
+
+        self.programming_language = ClangDriver.ProgrammingLanguage.OpenCL
+        self.compiler_flags = ["-xcl", "-target", "x86_64-pc-linux-gnu"]
 
     def preprocess(self, builder, visitor, benchmark_suites=None):
         suite_specifics = {
