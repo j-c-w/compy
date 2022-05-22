@@ -54,6 +54,10 @@ struct polymorphic_type_hook<cg::OperandInfo> {
         type = &typeid(cg::StmtInfo);
         return static_cast<const cg::StmtInfo *>(src);
       }
+      if (dynamic_cast<const cg::RecordInfo *>(src) != nullptr) {
+        type = &typeid(cg::RecordInfo);
+        return static_cast<const cg::RecordInfo *>(src);
+      }
     }
     return src;
   }
@@ -123,14 +127,16 @@ void registerClangExtractor(py::module m_parent) {
   py::class_<cg::ExtractionInfo, std::shared_ptr<cg::ExtractionInfo>>(
       m_graph, "ExtractionInfo")
       .def("accept", &cg::ExtractionInfo::accept)
-      .def_readonly("functionInfos", &cg::ExtractionInfo::functionInfos);
+      .def_readonly("functionInfos", &cg::ExtractionInfo::functionInfos)
+      .def_readonly("recordInfos", &cg::ExtractionInfo::recordInfos);
 
   py::class_<cg::DeclInfo, std::shared_ptr<cg::DeclInfo>>(m_graph, "DeclInfo")
       .def_readonly("name", &cg::DeclInfo::name)
       .def_readonly("kind", &cg::DeclInfo::kind)
       .def_readonly("nameToken", &cg::DeclInfo::nameToken)
       .def_readonly("tokens", &cg::DeclInfo::tokens)
-      .def_readonly("type", &cg::DeclInfo::type);
+      .def_readonly("type", &cg::DeclInfo::type)
+      .def_readonly("recordType", &cg::DeclInfo::recordType);
 
   py::class_<cg::FunctionInfo, std::shared_ptr<cg::FunctionInfo>>(
       m_graph, "FunctionInfo")
@@ -153,6 +159,10 @@ void registerClangExtractor(py::module m_parent) {
       .def_readonly("tokens", &cg::StmtInfo::tokens)
       .def_readonly("ast_relations", &cg::StmtInfo::ast_relations)
       .def_readonly("ref_relations", &cg::StmtInfo::ref_relations);
+
+  py::class_<cg::RecordInfo, std::shared_ptr<cg::RecordInfo>>(m_graph, "RecordInfo")
+      .def_readonly("name", &cg::RecordInfo::name)
+      .def_readonly("tokens", &cg::RecordInfo::tokens);
 
   py::class_<cg::TokenInfo, std::shared_ptr<cg::TokenInfo>>(m_graph,
                                                             "TokenInfo")

@@ -58,6 +58,9 @@ using DeclInfoPtr = std::shared_ptr<DeclInfo>;
 struct StmtInfo;
 using StmtInfoPtr = std::shared_ptr<StmtInfo>;
 
+struct RecordInfo;
+using RecordInfoPtr = std::shared_ptr<RecordInfo>;
+
 struct CFGBlockInfo;
 using CFGBlockInfoPtr = std::shared_ptr<CFGBlockInfo>;
 
@@ -83,6 +86,7 @@ struct OperandInfo : IVisitee {
 struct DeclInfo : OperandInfo {
   std::string name;
   std::string type;
+  RecordInfoPtr recordType;
   std::string kind;
   std::vector<TokenInfo> tokens;
   TokenInfo nameToken;
@@ -104,6 +108,15 @@ struct StmtInfo : OperandInfo {
     v->visit(this);
     for (auto& it : tokens) it.accept(v);
     for (const auto& it : ast_relations) it->accept(v);
+  }
+};
+
+struct RecordInfo : OperandInfo {
+  std::string name;
+  std::vector<TokenInfo> tokens;
+
+  void accept(IVisitor* v) override {
+    v->visit(this);
   }
 };
 
@@ -131,6 +144,7 @@ struct FunctionInfo : IVisitee {
 
 struct ExtractionInfo : IVisitee {
   std::vector<FunctionInfoPtr> functionInfos;
+  std::vector<RecordInfoPtr> recordInfos;
 
   void accept(IVisitor* v) override {
     v->visit(this);

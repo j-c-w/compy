@@ -48,7 +48,7 @@ bool ExtractorASTVisitor::VisitFunctionDecl(FunctionDecl *f) {
   // function declarations in headers are traversed also.
   if (!f->hasBody() || !f->getDeclName().isIdentifier()) {
     // throw away the tokens
-    tokenQueue_.popTokensForRange(f->getSourceRange());
+    tokenQueue_.popTokensForRange(f->getSourceRange(), false);
     return true;
   }
 
@@ -77,6 +77,12 @@ bool ExtractorASTVisitor::VisitFunctionDecl(FunctionDecl *f) {
   }
 
   return RecursiveASTVisitor<ExtractorASTVisitor>::VisitFunctionDecl(f);
+}
+
+bool ExtractorASTVisitor::VisitRecordDecl(::clang::RecordDecl *r) {
+  extractionInfo_->recordInfos.push_back(getInfo(*r, true));
+
+  return RecursiveASTVisitor<ExtractorASTVisitor>::VisitRecordDecl(r);
 }
 
 CFGBlockInfoPtr ExtractorASTVisitor::getInfo(const ::clang::CFGBlock &block) {
@@ -123,7 +129,7 @@ FunctionInfoPtr ExtractorASTVisitor::getInfo(const FunctionDecl &func) {
   info->type = func.getType().getAsString();
 
   // Collect tokens
-  info->tokens = tokenQueue_.popTokensForRange(func.getSourceRange());
+  info->tokens = tokenQueue_.popTokensForRange(func.getSourceRange(), false);
 
   return info;
 }
@@ -144,7 +150,7 @@ StmtInfoPtr ExtractorASTVisitor::getInfo(const Stmt &stmt) {
   }
 
   // Collect tokens
-  info->tokens = tokenQueue_.popTokensForRange(stmt.getSourceRange());
+  info->tokens = tokenQueue_.popTokensForRange(stmt.getSourceRange(), false);
 
   return info;
 }
@@ -153,7 +159,7 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
   auto it = declInfos_.find(&decl);
   if (it != declInfos_.end()) {
     if (consumeTokens) {
-      auto tokens = tokenQueue_.popTokensForRange(decl.getSourceRange());
+      auto tokens = tokenQueue_.popTokensForRange(decl.getSourceRange(), false);
       it->second->tokens.insert(it->second->tokens.end(), tokens.begin(),
                                 tokens.end());
     }
@@ -177,13 +183,46 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
 
   // Collect type.
   if (const ValueDecl *vd = dyn_cast<ValueDecl>(&decl)) {
+    // As string
     info->type = vd->getType().getAsString();
+
+    // As a reference to a record decl, if e.g. a struct
+    if (const RecordDecl *rd = vd->getType()->getAsRecordDecl()) {
+      info->recordType = getInfo(*rd, false);
+    }
   }
 
   // Collect tokens
   if (consumeTokens) {
-    info->tokens = tokenQueue_.popTokensForRange(decl.getSourceRange());
+    info->tokens = tokenQueue_.popTokensForRange(decl.getSourceRange(), false);
   }
+
+  for (auto &token : info->tokens) {
+      std::cout << token.location.getRawEncoding() << " : " << token.name << std::endl;
+  }
+
+  return info;
+}
+
+RecordInfoPtr ExtractorASTVisitor::getInfo(const RecordDecl &decl, bool consumeTokens) {
+  auto it = recordInfos_.find(&decl);
+  if (it != recordInfos_.end()) return it->second;
+
+  RecordInfoPtr info(new RecordInfo());
+  recordInfos_[&decl] = info;
+
+  // Collect name.
+  info->name = decl.getQualifiedNameAsString();
+
+  // Collect tokens
+  if (consumeTokens) {
+    info->tokens = tokenQueue_.popTokensForRange(decl.getSourceRange(), true);
+  }
+
+//  // Collect fields
+//  for (RecordDecl::field_iterator it = decl->field_begin(), Eb = decl->field_end(); it != Eb; ++it) {
+//    std::cout << "  "  << it->getType().getAsString() << " " << it->getNameAsString() << std::endl;
+//  }
 
   return info;
 }
@@ -209,12 +248,14 @@ std::unique_ptr<ASTConsumer> ExtractorFrontendAction::CreateASTConsumer(
 }
 
 std::vector<TokenInfo> TokenQueue::popTokensForRange(
-    ::clang::SourceRange range) {
+    ::clang::SourceRange range,
+    bool ignore_consumed) {
   std::vector<TokenInfo> result;
   auto startPos = token_index_[range.getBegin().getRawEncoding()];
   auto endPos = token_index_[range.getEnd().getRawEncoding()];
   for (std::size_t i = startPos; i <= endPos; ++i) {
-    if (token_consumed_[i]) continue;
+
+    if (!ignore_consumed && token_consumed_[i]) continue;
 
     result.push_back(tokens_[i]);
     token_consumed_[i] = true;
@@ -227,7 +268,14 @@ void TokenQueue::addToken(::clang::Token token) {
   TokenInfo info;
   info.index = nextIndex++;
   info.kind = token.getName();
-  info.name = pp_.getSpelling(token, nullptr);
+  if (token.isLiteral()) {
+    const char *literal_data = token.getLiteralData();
+    std::string token_str(literal_data, token.getLength());
+    info.name = token_str;
+  } else {
+    info.name = pp_.getSpelling(token, nullptr);
+  }
+
   info.location = token.getLocation();
   tokens_.push_back(info);
   token_consumed_.push_back(false);

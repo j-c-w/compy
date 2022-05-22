@@ -37,6 +37,9 @@ class objectview(object):
         self.__dict__ = d
 
 
+def tokens_to_str(token_infos):
+    return ' '.join([t.name for t in sorted(token_infos, key=lambda x: x.index) if 'pragma' not in t.kind])
+
 class TestBuilder(RepresentationBuilder):
     def string_to_info(self, src):
         functionInfo = objectview({"name": "xyz"})
@@ -76,7 +79,7 @@ def match_loops(root_stmt, depth_min=1):
 
 def get_statement_counts(stmt):
     def stmt_count_fn(stmt, ret={}):
-        if stmt not in ret:
+        if stmt.name not in ret:
             ret[stmt.name] = 1
         ret[stmt.name] += 1
         if hasattr(stmt, 'ast_relations'):
@@ -99,23 +102,59 @@ def loops_to_infos(loops):
 
         return ret
 
+    def get_all_stmts(stmt):
+        ret = []
+
+        ret.append(stmt)
+
+        if hasattr(stmt, 'ast_relations'):
+            for s in stmt.ast_relations:
+                ret += get_all_stmts(s)
+        return ret
+
+    def get_undef_vars(stmt):
+        stmts = get_all_stmts(stmt)
+
+        undef_vars = []
+        for src_stmt in stmts:
+            for ref_stmt in src_stmt.ref_relations:
+                if ref_stmt not in stmts:
+                    type_str = ref_stmt.type if not ref_stmt.recordType else tokens_to_str(ref_stmt.recordType.tokens)
+                    undef_vars.append('%s %s;' % (type_str, ref_stmt.name))
+        return list(set(undef_vars))
+
+    def wrap_in_function(body):
+        return 'int main() { ' + body + ' }'
+
     def indent(c_unindented):
         result = subprocess.run(['indent'], input=c_unindented, capture_output=True, text=True)
         return result.stdout
 
+    def compile_check(src):
+        p1 = subprocess.Popen(['clang', '-x', 'c', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        p1_out = p1.communicate(input=src.encode())[0]
+        return p1.returncode
+
     loop_infos = []
     for loop, depth in loops.items():
-        token_infos = get_tokens(loop)
-        tokens_infos_sorted = [t.name for t in sorted(token_infos, key=lambda x: x.index) if 'pragma' not in t.kind]
-        tokens = ' '.join(tokens_infos_sorted)
+        body_token_list = get_tokens(loop)
+        body = tokens_to_str(body_token_list)
+        function = wrap_in_function(body)
+
+        undef_vars_list = get_undef_vars(loop)
+        undef_vars = ' '.join(undef_vars_list)
+
+        src = indent(undef_vars + '\n\n' + function)
 
         loop_infos.append({
             'meta': {
                 'max_loop_depth': depth,
-                'num_tokens': len(token_infos),
-                'stmt_counts': get_statement_counts(loop)
+                'num_tokens': len(body_token_list),
+                'stmt_counts': get_statement_counts(loop),
+                'clang_returncode': compile_check(src)
             },
-            'src': indent(tokens),
+            'src': src,
+            'body': indent(body)
         })
 
     return loop_infos
@@ -134,22 +173,24 @@ class ASTGraphBuilder(RepresentationBuilder):
         with clang_driver_scoped_options(self.__clang_driver, additional_include_dir=additional_include_dir, filename=filename):
             return self.__extractor.GraphFromString(src)
 
-    def info_to_representation(self, info, visitor=ASTDataVisitor):
+    def info_to_representation(self, functionInfo, visitor):
         vis = visitor()
-        info.accept(vis)
+        functionInfo.accept(vis)
 
 #        for fi in info.functionInfos:
 #            print(' '.join([t.name for t in fi.tokens]))
 
         # Extract loops
-        loops = match_loops(info.entryStmt)
+        loops = match_loops(functionInfo.entryStmt)
         self.loop_infos += loops_to_infos(loops)
 
 
 datasets = [
     LivermorecDataset(),
-    OpenCLDevmapDataset()
+ #   OpenCLDevmapDataset()
 ]
+
+loop_infos_flat = []
 
 for ds in datasets:
     clang_driver = ClangDriver(
@@ -176,30 +217,32 @@ for ds in datasets:
         print('-' * 80)
         print(loop_info['meta'])
         print()
-        print(loop_info['src'])
+        print(loop_info['body'])
 
-    # Store in SQL DB
-    loop_infos_flat = [flatten_dict(x) for x in builder.loop_infos]
-    all_keys = set(itertools.chain.from_iterable([x.keys() for x in loop_infos_flat]))
-    int_keys = {x for x in all_keys if x.startswith('meta')}
+    loop_infos_flat += [flatten_dict(x) for x in builder.loop_infos]
 
-    # establish connection to sqlite database and save into db
-    conn = sqlite3.connect('loops.db')
-    c = conn.cursor()
 
-    # create a sqlite3 database to store the dictionary values
-    def create_table():
-        cols = ', '.join([x + ' INT' for x in int_keys])
-        c.execute('CREATE TABLE IF NOT EXISTS loops(src TEXT, ' + cols + ')')
+# Store in SQL DB
+all_keys = set(itertools.chain.from_iterable([x.keys() for x in loop_infos_flat]))
+int_keys = {x for x in all_keys if x.startswith('meta')}
 
-    create_table()
+# establish connection to sqlite database and save into db
+conn = sqlite3.connect('loops.db')
+c = conn.cursor()
 
-    for loop_info in loop_infos_flat:
-        columns = ', '.join(loop_info.keys())
-        placeholders = ', '.join('?' * len(loop_info))
-        sql = 'INSERT INTO loops ({}) VALUES ({})'.format(columns, placeholders)
-        c.execute(sql, list(loop_info.values()))
+# create a sqlite3 database to store the dictionary values
+def create_table():
+    int_cols = ', '.join([x + ' INT' for x in int_keys])
+    c.execute('CREATE TABLE IF NOT EXISTS loops(src TEXT, body TEXT, ' + int_cols + ')')
 
-    conn.commit()
+create_table()
+
+for loop_info in loop_infos_flat:
+    columns = ', '.join(loop_info.keys())
+    placeholders = ', '.join('?' * len(loop_info))
+    sql = 'INSERT INTO loops ({}) VALUES ({})'.format(columns, placeholders)
+    c.execute(sql, list(loop_info.values()))
+
+conn.commit()
 
 print('done')

@@ -34,6 +34,20 @@ constexpr char kProgram5[] =
     "int foo(int x) {\n"
     "  return max(1, x);\n"
     "}";
+constexpr char kProgram6[] =
+    "struct st {\n"
+        "  int x[1337];\n"
+        "  int y;\n"
+        "};\n"
+        "struct {\n"
+        "  int x;\n"
+        "  int y[1112];\n"
+        "} st2;\n"
+        "\n"
+        "int foo(struct st s) {\n"
+    "  return st2.x;\n"
+    "  return st2.x;\n"
+        "}";
 
 // LLVM samples
 constexpr char kLLVM1[] =

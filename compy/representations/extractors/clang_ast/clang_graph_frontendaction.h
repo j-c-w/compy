@@ -31,7 +31,7 @@ class TokenQueue {
 
   ~TokenQueue() { pp_.setTokenWatcher(nullptr); }
 
-  std::vector<TokenInfo> popTokensForRange(::clang::SourceRange range);
+  std::vector<TokenInfo> popTokensForRange(::clang::SourceRange range, bool ignore_consumed);
   TokenInfo *getTokenAt(::clang::SourceLocation loc);
 
  private:
@@ -56,6 +56,7 @@ class ExtractorASTVisitor
 
   bool VisitStmt(::clang::Stmt *s);
   bool VisitFunctionDecl(::clang::FunctionDecl *f);
+  bool VisitRecordDecl(::clang::RecordDecl *r);
 
   // postorder traversal is necessary so that tokens get assigned to
   // nodes closer to the leaves first
@@ -66,6 +67,7 @@ class ExtractorASTVisitor
   CFGBlockInfoPtr getInfo(const ::clang::CFGBlock &block);
   StmtInfoPtr getInfo(const ::clang::Stmt &stmt);
   DeclInfoPtr getInfo(const ::clang::Decl &decl, bool consumeTokens);
+  RecordInfoPtr getInfo(const ::clang::RecordDecl &decl, bool consumeTokens);
 
  private:
   ::clang::ASTContext &context_;
@@ -75,6 +77,7 @@ class ExtractorASTVisitor
   std::unordered_map<const ::clang::Stmt *, StmtInfoPtr> stmtInfos_;
   std::unordered_map<const ::clang::CFGBlock *, CFGBlockInfoPtr> cfgBlockInfos_;
   std::unordered_map<const ::clang::Decl *, DeclInfoPtr> declInfos_;
+  std::unordered_map<const ::clang::RecordDecl *, RecordInfoPtr> recordInfos_;
 };
 
 class ExtractorASTConsumer : public ::clang::ASTConsumer {
