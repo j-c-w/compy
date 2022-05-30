@@ -70,17 +70,21 @@ bool ExtractorASTVisitor::VisitFunctionDecl(FunctionDecl *f) {
       CFG::buildCFG(f, f->getBody(), &context_, CFG::BuildOptions());
   //  cfg->dump(LangOptions(), true);
 
-  // Create CFG Blocks.
-  for (CFG::iterator it = cfg->begin(), Eb = cfg->end(); it != Eb; ++it) {
-    CFGBlock *B = *it;
-    functionInfo->cfgBlocks.push_back(getInfo(*B));
-  }
+//  // Create CFG Blocks.
+//  for (CFG::iterator it = cfg->begin(), Eb = cfg->end(); it != Eb; ++it) {
+//    CFGBlock *B = *it;
+//    functionInfo->cfgBlocks.push_back(getInfo(*B));
+//  }
 
   return RecursiveASTVisitor<ExtractorASTVisitor>::VisitFunctionDecl(f);
 }
 
 bool ExtractorASTVisitor::VisitRecordDecl(::clang::RecordDecl *r) {
-  extractionInfo_->recordInfos.push_back(getInfo(*r, true));
+//  if (const RecordDecl *rdef = r->getDefinition()) {
+//    extractionInfo_->recordInfos.push_back(getInfo(*rdef, true));
+//  } else {
+//    extractionInfo_->recordInfos.push_back(getInfo(*r, true));
+//  }
 
   return RecursiveASTVisitor<ExtractorASTVisitor>::VisitRecordDecl(r);
 }
@@ -170,6 +174,10 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
   DeclInfoPtr info(new DeclInfo);
   declInfos_[&decl] = info;
 
+//  // If enum type, skip the rest
+//  if (EnumDecl *ed = cast<EnumDecl*>(decl))
+//    return info;
+
   info->kind = decl.getDeclKindName();
 
   // Collect name.
@@ -186,9 +194,20 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
     // As string
     info->type = vd->getType().getAsString();
 
-    // As a reference to a record decl, if e.g. a struct
-    if (const RecordDecl *rd = vd->getType()->getAsRecordDecl()) {
-      info->recordType = getInfo(*rd, false);
+    // Maybe this is a pointer. In that case, iteratively dereference pointers
+    // until the actual primitive / record decl is found.
+    QualType tyIt = vd->getType();
+    while (tyIt->isAnyPointerType()) {
+      tyIt = tyIt->getPointeeType();
+    }
+
+    // Collect record decls
+    if (const RecordDecl *rd = tyIt->getAsRecordDecl()) {
+      if (const RecordDecl *rdef = rd->getDefinition()) {
+        info->recordType = getInfo(*rdef, true);
+      } else {
+        info->recordType = getInfo(*rd, true);
+      }
     }
   }
 
@@ -219,10 +238,36 @@ RecordInfoPtr ExtractorASTVisitor::getInfo(const RecordDecl &decl, bool consumeT
     info->tokens = tokenQueue_.popTokensForRange(decl.getSourceRange(), true);
   }
 
-//  // Collect fields
-//  for (RecordDecl::field_iterator it = decl->field_begin(), Eb = decl->field_end(); it != Eb; ++it) {
-//    std::cout << "  "  << it->getType().getAsString() << " " << it->getNameAsString() << std::endl;
-//  }
+  // Collect fields
+  for (RecordDecl::field_iterator it = decl.field_begin(), Eb = decl.field_end(); it != Eb; ++it) {
+    // Maybe this is a pointer. In that case, iteratively dereference pointers
+    // until the actual primitive / record decl is found.
+    QualType tyIt = it->getType();
+    while (tyIt->isAnyPointerType()) {
+      tyIt = tyIt->getPointeeType();
+    }
+
+    // Collect record decls
+    if (const RecordDecl *rd = tyIt->getAsRecordDecl()) {
+      if (const RecordDecl *rdef = rd->getDefinition()) {
+        info->referencedRecords.push_back(getInfo(*rdef, true));
+      } else {
+        info->referencedRecords.push_back(getInfo(*rd, true));
+      }
+    }
+
+//    // Collect enum decls
+//    if (EnumDecl *ed = cast<EnumType>(tyIt)->getDecl()) {
+//      if (EnumDecl *edef = ed->getDefinition()) {
+//        info->referencedEnums.push_back(getInfo(*edef, true));
+//      } else {
+//        info->referencedEnums.push_back(getInfo(*ed, true));
+//      }
+//    }
+
+  }
+
+  info->isTypedef = isa<TypedefDecl>(decl);
 
   return info;
 }

@@ -1,7 +1,7 @@
 import os
+import shutil
 
 import urllib.request
-import zipfile
 
 from appdirs import user_data_dir
 from git import Repo
@@ -21,14 +21,14 @@ class Dataset(object):
         raise NotImplementedError
 
     def download_http_and_extract(self, url):
-        archive_file = os.path.join(self.dataset_dir, "content.zip")
+        filename = url.split('/')[-1]
+        archive_file = os.path.join(self.dataset_dir, filename)
 
         if not (os.path.isfile(archive_file) or os.path.isdir(self.content_dir)):
             urllib.request.urlretrieve(url, archive_file)
 
             os.makedirs(self.content_dir, exist_ok=True)
-            with zipfile.ZipFile(archive_file, "r") as f:
-                f.extractall(self.content_dir)
+            shutil.unpack_archive(archive_file, self.content_dir)
 
         return archive_file, self.content_dir
 

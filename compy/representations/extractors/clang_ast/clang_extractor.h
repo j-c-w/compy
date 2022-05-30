@@ -113,7 +113,10 @@ struct StmtInfo : OperandInfo {
 
 struct RecordInfo : OperandInfo {
   std::string name;
+  bool isTypedef;
   std::vector<TokenInfo> tokens;
+  std::vector<RecordInfoPtr> referencedRecords;
+  std::vector<DeclInfoPtr> referencedEnums;
 
   void accept(IVisitor* v) override {
     v->visit(this);

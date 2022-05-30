@@ -35,14 +35,15 @@ class LivermorecDataset(dataset.Dataset):
 
     def preprocess(self, builder, visitor, start_at=False, num_samples=None, randomly_select_samples=False):
         filenames = get_all_src_files(self.content_dir)
-
-        with open(filenames[0], "rb") as f:
+        filename = filenames[0]
+        with open(filename, "rb") as f:
             source_code = f.read()
 
 #        try:
         extractionInfo = builder.string_to_info(source_code)
         for functionInfo in extractionInfo.functionInfos:
-            sample = builder.info_to_representation(functionInfo, visitor)
+            meta = {'filename': filename}
+            sample = builder.info_to_representation(functionInfo, visitor, meta)
 
 #        except Exception as e:
 #            print('WARNING: Exception occurred while preprocessing sample')

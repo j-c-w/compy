@@ -7,6 +7,8 @@ import sqlite3
 
 from compy.datasets import LivermorecDataset
 from compy.datasets import OpenCLDevmapDataset
+from compy.datasets import OpencvDataset
+from compy.datasets import PolybenchDataset
 from compy.representations import RepresentationBuilder
 
 from compy.representations.extractors import clang_driver_scoped_options
@@ -28,7 +30,7 @@ def flatten_dict(d, parent_key='', sep='_'):
         if isinstance(v, Mapping):
             items.extend(flatten_dict(v, new_key, sep=sep).items())
         else:
-            items.append((new_key, str(v).replace('\n', '').replace(' ', '')))
+            items.append((new_key, str(v)))
     return dict(items)
 
 
@@ -79,9 +81,18 @@ def match_loops(root_stmt, depth_min=1):
 
 def get_statement_counts(stmt):
     def stmt_count_fn(stmt, ret={}):
-        if stmt.name not in ret:
-            ret[stmt.name] = 1
-        ret[stmt.name] += 1
+        if any([allowed in stmt.name for allowed in ['Stmt', 'Expr', 'Operator', 'Literal']]):
+            name = stmt.name
+            if name not in ret:
+                ret[name] = 1
+            ret[name] += 1
+
+            if stmt.name in ['BinaryOperator', 'UnaryOperator']:
+                name = stmt.name + '_' + '_'.join([t.kind for t in stmt.tokens])
+                if name not in ret:
+                    ret[name] = 1
+                ret[name] += 1
+
         if hasattr(stmt, 'ast_relations'):
             for s in stmt.ast_relations:
                 stmt_count_fn(s, ret)
@@ -92,7 +103,7 @@ def get_statement_counts(stmt):
     return stmt_counts
 
 
-def loops_to_infos(loops):
+def loops_to_infos(loops, meta):
     def get_tokens(stmt):
         ret = stmt.tokens
 
@@ -104,7 +115,6 @@ def loops_to_infos(loops):
 
     def get_all_stmts(stmt):
         ret = []
-
         ret.append(stmt)
 
         if hasattr(stmt, 'ast_relations'):
@@ -112,16 +122,62 @@ def loops_to_infos(loops):
                 ret += get_all_stmts(s)
         return ret
 
+    def get_referenced_records(root_record):
+        visited = [root_record]
+        todo = [root_record]
+
+        while todo:
+            current = todo.pop(0)
+
+            for rec in current.referencedRecords:
+                if rec not in visited:
+                    visited.append(rec)
+                    todo.append(rec)
+
+        return visited
+
     def get_undef_vars(stmt):
         stmts = get_all_stmts(stmt)
 
         undef_vars = []
+        undef_recs = []
         for src_stmt in stmts:
-            for ref_stmt in src_stmt.ref_relations:
-                if ref_stmt not in stmts:
-                    type_str = ref_stmt.type if not ref_stmt.recordType else tokens_to_str(ref_stmt.recordType.tokens)
-                    undef_vars.append('%s %s;' % (type_str, ref_stmt.name))
-        return list(set(undef_vars))
+            if hasattr(src_stmt, 'ref_relations'):
+                for ref_stmt in src_stmt.ref_relations:
+                    if ref_stmt not in stmts:
+                        if ref_stmt.kind == 'Function':
+                            args_start_idx = ref_stmt.type.index('(')
+                            undef_var_str = '%s %s %s;' % (ref_stmt.type[0:args_start_idx], ref_stmt.name, ref_stmt.type[args_start_idx:])
+
+                        else:
+                            if '(*)' in ref_stmt.type:
+                                undef_var_str = ref_stmt.type.replace('(*)', '(*' + ref_stmt.name + ')') + ';'
+                            elif '[' in ref_stmt.type:
+                                undef_var_str = ref_stmt.type.replace('[', ' ' + ref_stmt.name + '[', 1) + ';'
+                            else:
+                                undef_var_str = '%s %s;' % (ref_stmt.type, ref_stmt.name)
+
+                        undef_vars.append(undef_var_str)
+
+                        if ref_stmt.recordType:
+                            recs = get_referenced_records(ref_stmt.recordType)
+                            for rec in reversed(recs):
+                                if rec not in undef_recs:
+                                    undef_recs.append(rec)
+
+        # Record decls
+        undef_rec_decls = []
+        # - Add forward decls
+        for rec in undef_recs:
+            is_typedef = 'typedef ' # if rec.isTypedef else ''
+            undef_rec_decls.append(is_typedef + 'struct %s %s;' % (rec.name, rec.name))
+
+        # Add actual decls
+        for rec in undef_recs:
+            is_typedef = 'typedef ' # if rec.isTypedef else ''
+            undef_rec_decls.append(is_typedef + tokens_to_str(rec.tokens) + ' ' + rec.name + ';')
+
+        return undef_rec_decls + list(set(undef_vars))
 
     def wrap_in_function(body):
         return 'int main() { ' + body + ' }'
@@ -141,16 +197,25 @@ def loops_to_infos(loops):
         body = tokens_to_str(body_token_list)
         function = wrap_in_function(body)
 
+        if meta['filename'] == '/home/alex/.local/share/compy-Learn/1.0/OpencvDataset/content/libavfilter/vsrc_testsrc.c':
+            print('foo')
+
         undef_vars_list = get_undef_vars(loop)
         undef_vars = ' '.join(undef_vars_list)
 
-        src = indent(undef_vars + '\n\n' + function)
+        includes = '#include <stdint.h>\n'
+        includes += '#include <stdio.h>\n'
 
+        src = indent(includes + '\n\n' + undef_vars + '\n\n' + function)
+
+        print(meta['filename'])
+        print(src)
         loop_infos.append({
             'meta': {
                 'max_loop_depth': depth,
                 'num_tokens': len(body_token_list),
                 'stmt_counts': get_statement_counts(loop),
+                'filename': meta['filename'],
                 'clang_returncode': compile_check(src)
             },
             'src': src,
@@ -164,16 +229,17 @@ class ASTGraphBuilder(RepresentationBuilder):
     def __init__(self, clang_driver=None):
         RepresentationBuilder.__init__(self)
 
-        self.__clang_driver = clang_driver
-        self.__extractor = ClangExtractor(self.__clang_driver)
+        self.clang_driver = clang_driver
+        self.__extractor = ClangExtractor(self.clang_driver)
 
         self.loop_infos = []
 
     def string_to_info(self, src, additional_include_dir=None, filename=None):
-        with clang_driver_scoped_options(self.__clang_driver, additional_include_dir=additional_include_dir, filename=filename):
-            return self.__extractor.GraphFromString(src)
+        with clang_driver_scoped_options(self.clang_driver, additional_include_dir=additional_include_dir, filename=filename):
+            extractor = ClangExtractor(self.clang_driver)
+            return extractor.GraphFromString(src)
 
-    def info_to_representation(self, functionInfo, visitor):
+    def info_to_representation(self, functionInfo, visitor, meta):
         vis = visitor()
         functionInfo.accept(vis)
 
@@ -182,12 +248,13 @@ class ASTGraphBuilder(RepresentationBuilder):
 
         # Extract loops
         loops = match_loops(functionInfo.entryStmt)
-        self.loop_infos += loops_to_infos(loops)
+        self.loop_infos += loops_to_infos(loops, meta)
 
 
 datasets = [
-    LivermorecDataset(),
- #   OpenCLDevmapDataset()
+  # LivermorecDataset()
+  OpencvDataset()
+  #PolybenchDataset()
 ]
 
 loop_infos_flat = []
@@ -233,7 +300,9 @@ c = conn.cursor()
 # create a sqlite3 database to store the dictionary values
 def create_table():
     int_cols = ', '.join([x + ' INT' for x in int_keys])
-    c.execute('CREATE TABLE IF NOT EXISTS loops(src TEXT, body TEXT, ' + int_cols + ')')
+    cmd = 'CREATE TABLE IF NOT EXISTS loops(src TEXT, body TEXT, ' + int_cols + ')'
+    print(cmd)
+    c.execute(cmd)
 
 create_table()
 
