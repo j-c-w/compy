@@ -181,6 +181,15 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
   info->kind = decl.getDeclKindName();
 
   // Collect name.
+  if (const TypedefNameDecl *vd = dyn_cast<TypedefNameDecl>(&decl)) {
+    info->name = vd->getQualifiedNameAsString();
+    info->type = vd->getUnderlyingType()->getTypeClassName();
+
+    if (const auto nameTokenPtr = tokenQueue_.getTokenAt(vd->getLocation())) {
+      info->nameToken = *nameTokenPtr;
+    }
+  }
+
   if (const ValueDecl *vd = dyn_cast<ValueDecl>(&decl)) {
     info->name = vd->getQualifiedNameAsString();
 
@@ -195,7 +204,6 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
     info->type = vd->getType().getAsString();
 
     // Maybe this is a pointer. In that case, iteratively dereference pointers
-    // until the actual primitive / record decl is found.
     QualType tyIt = vd->getType();
     while (tyIt->isAnyPointerType()) {
       tyIt = tyIt->getPointeeType();
@@ -216,8 +224,27 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
     info->tokens = tokenQueue_.popTokensForRange(decl.getSourceRange(), false);
   }
 
-  for (auto &token : info->tokens) {
-      std::cout << token.location.getRawEncoding() << " : " << token.name << std::endl;
+//  for (auto &token : info->tokens) {
+//      std::cout << token.location.getRawEncoding() << " : " << token.name << std::endl;
+//  }
+
+  return info;
+}
+
+EnumDeclInfoPtr ExtractorASTVisitor::getInfo(const EnumDecl &decl, bool consumeTokens) {
+  auto it = enumDeclInfos_.find(&decl);
+  if (it != enumDeclInfos_.end()) {
+    return it->second;
+  }
+
+  EnumDeclInfoPtr info(new EnumDeclInfo);
+  enumDeclInfos_[&decl] = info;
+
+  info->name = decl.getQualifiedNameAsString();
+
+  // Collect tokens
+  if (consumeTokens) {
+    info->tokens = tokenQueue_.popTokensForRange(decl.getSourceRange(), true);
   }
 
   return info;
@@ -241,13 +268,13 @@ RecordInfoPtr ExtractorASTVisitor::getInfo(const RecordDecl &decl, bool consumeT
   // Collect fields
   for (RecordDecl::field_iterator it = decl.field_begin(), Eb = decl.field_end(); it != Eb; ++it) {
     // Maybe this is a pointer. In that case, iteratively dereference pointers
-    // until the actual primitive / record decl is found.
     QualType tyIt = it->getType();
     while (tyIt->isAnyPointerType()) {
       tyIt = tyIt->getPointeeType();
     }
 
     // Collect record decls
+    // - From fields
     if (const RecordDecl *rd = tyIt->getAsRecordDecl()) {
       if (const RecordDecl *rdef = rd->getDefinition()) {
         info->referencedRecords.push_back(getInfo(*rdef, true));
@@ -255,16 +282,48 @@ RecordInfoPtr ExtractorASTVisitor::getInfo(const RecordDecl &decl, bool consumeT
         info->referencedRecords.push_back(getInfo(*rd, true));
       }
     }
+    // - From function pointers in fields
+    std::string str = tyIt->getTypeClassName();
+    if (const TypedefType *tt = tyIt->getAs<TypedefType>()) {
+      const TypedefNameDecl *tnd = tt->getDecl();
+      info->referencedTypedefs.push_back(getInfo(*tnd, true));
+    }
 
-//    // Collect enum decls
-//    if (EnumDecl *ed = cast<EnumType>(tyIt)->getDecl()) {
-//      if (EnumDecl *edef = ed->getDefinition()) {
-//        info->referencedEnums.push_back(getInfo(*edef, true));
-//      } else {
-//        info->referencedEnums.push_back(getInfo(*ed, true));
-//      }
-//    }
 
+      // - From function prototypes in fields
+    if (const auto *PT = it->getType()->getAs<::clang::PointerType>()) {
+        auto ptr = PT->getPointeeType();
+        if (const auto *paren = ptr->getAs<::clang::ParenType>()) {
+            if (const auto *fn = paren->desugar()->getAs<::clang::FunctionProtoType>()) {
+              // Return type
+              if (const RecordDecl *rd = fn->getReturnType()->getAsRecordDecl()) {
+                info->referencedRecords.push_back(getInfo(*rd, true));
+              }
+              // Function param types
+              for (const auto &param : fn->param_types()) {
+                // Maybe this is a pointer. In that case, iteratively dereference pointers
+                QualType paramTyIt = param;
+                while (paramTyIt->isAnyPointerType()) {
+                  paramTyIt = paramTyIt->getPointeeType();
+                }
+
+                if (const RecordDecl *rd = paramTyIt->getAsRecordDecl()) {
+                  info->referencedRecords.push_back(getInfo(*rd, true));
+                }
+              }
+            }
+        }
+    }
+
+    // Collect enum decls
+    if (const auto *ElabT = it->getType()->getAs<ElaboratedType>()) {
+      auto Ty = ElabT->getNamedType();
+
+      if (const auto *ET = Ty->getAs<EnumType>()) {
+        const EnumDecl *ED = ET->getDecl();
+        info->referencedEnums.push_back(getInfo(*ED, true));
+      }
+    }
   }
 
   info->isTypedef = isa<TypedefDecl>(decl);

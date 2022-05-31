@@ -49,11 +49,29 @@ class ClangExtractorCPlusPlusFixture : public ClangExtractorFixture {
   void SetUp() override { Init(CD::ProgrammingLanguage::CPLUSPLUS); }
 };
 
-TEST_F(ClangExtractorCFixture, ExtractGraphFromFunction5) {
+TEST_F(ClangExtractorCFixture, ExtractGraphFromStructs) {
   graph::ExtractionInfoPtr info = extractor_->GraphFromString(kProgram6);
 
   ASSERT_EQ(info->functionInfos.size(), 1UL);
 }
+
+TEST_F(ClangExtractorCFixture, ExtractGraphFromEnums) {
+  graph::ExtractionInfoPtr info = extractor_->GraphFromString(kProgram7);
+
+  ASSERT_EQ(info->functionInfos.size(), 1UL);
+}
+
+TEST_F(ClangExtractorCFixture, ExtractGraphFromFunctionPrototypesInStructs) {
+  graph::ExtractionInfoPtr info = extractor_->GraphFromString(kProgram8);
+
+  ASSERT_EQ(info->functionInfos.size(), 1UL);
+}
+TEST_F(ClangExtractorCFixture, ExtractGraphFromFunctionPointersInStructs) {
+  graph::ExtractionInfoPtr info = extractor_->GraphFromString(kProgram9);
+
+  ASSERT_EQ(info->functionInfos.size(), 1UL);
+}
+
 //
 // TEST_F(ClangExtractorCFixture, ExtractSeqFromFunction5) {
 //  seq::ExtractionInfoPtr info = extractor_->SeqFromString(kProgram5);

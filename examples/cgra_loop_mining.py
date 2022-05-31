@@ -134,11 +134,88 @@ def loops_to_infos(loops, meta):
                     visited.append(rec)
                     todo.append(rec)
 
-        return visited
+        return reversed(visited)
+
+    def get_referenced_records_rpo(root_record):
+        all_nodes = get_referenced_records(root_record)
+
+        # Standard colouring for DFS
+        WHITE = 0  # Not seen yet
+        GRAY = 1   # Seen but not completed
+        BLACK = 2  # Seen and completed
+
+        # Colours for each node
+        colours = {n: WHITE for n in all_nodes}
+        # Order of nodes. We calculate a post order then reverse it.
+        # Nodes will be appended as they are marked black
+        order = []
+
+        # The actual DFS
+        def dfs(n):
+            colours[n] = GRAY
+            for rec in n.referencedRecords:
+                if colours[rec] == WHITE:
+                    dfs(rec)
+            colours[n] = BLACK
+            order.append(n)
+
+        # Do it from the root node first
+        dfs(root_record)
+        # Then keep doing it while there are white nodes
+        for n in colours:
+            if colours[n] == WHITE:
+                dfs(n)
+
+        # Now reverse
+        # order.reverse()
+        return order
+
 
     def get_undef_vars(stmt):
+        # Record decls
         stmts = get_all_stmts(stmt)
+        undef_vars = []
+        undef_recs = []
+        for src_stmt in stmts:
+            if hasattr(src_stmt, 'ref_relations'):
+                for ref_stmt in src_stmt.ref_relations:
+                    if ref_stmt not in stmts:
+                        if ref_stmt.recordType:
+                            recs = get_referenced_records_rpo(ref_stmt.recordType)
+                            for rec in recs:
+                                if rec not in undef_recs:
+                                    undef_recs.append(rec)
 
+        # - Add tyedefed functions
+        undef_typedefed_fns = []
+        for rec in undef_recs:
+            for td in rec.referencedTypedefs:
+                if td.type == 'Paren':
+                    undef_typedefed_fns.append(td.name)
+
+        # - Add forward decls
+        undef_rec_fwd_decls = []
+        for rec in undef_recs:
+            if '(anonymous)' in rec.name:
+                continue
+            undef_rec_fwd_decls.append('typedef struct %s %s;' % (rec.name, rec.name))
+
+        # - Add actual decls
+        undef_rec_decls = []
+        for rec in undef_recs:
+            if '(anonymous)' in rec.name:
+                continue
+            undef_rec_decls.append('typedef ' + tokens_to_str(rec.tokens) + ' ' + rec.name + ';')
+
+        # Enums
+        enum_decls = []
+        for rec in undef_recs:
+            for en in rec.referencedEnums:
+                enum_decls.append(tokens_to_str(en.tokens) + ';')
+        enum_decls = [en for en in set(enum_decls) if en[4:len(en)-2] not in ' '.join(set(undef_rec_decls))]
+
+        # Undef Vars
+        stmts = get_all_stmts(stmt)
         undef_vars = []
         undef_recs = []
         for src_stmt in stmts:
@@ -157,27 +234,22 @@ def loops_to_infos(loops, meta):
                             else:
                                 undef_var_str = '%s %s;' % (ref_stmt.type, ref_stmt.name)
 
+                            if ref_stmt.name in ''.join(enum_decls) and ref_stmt.name.isupper():
+                                continue
+
                         undef_vars.append(undef_var_str)
 
-                        if ref_stmt.recordType:
-                            recs = get_referenced_records(ref_stmt.recordType)
-                            for rec in reversed(recs):
-                                if rec not in undef_recs:
-                                    undef_recs.append(rec)
+        undef_vars_list = list(set(enum_decls)) \
+               + list(set(undef_rec_fwd_decls)) \
+               + undef_rec_decls \
+               + list(set(undef_vars))
 
-        # Record decls
-        undef_rec_decls = []
-        # - Add forward decls
-        for rec in undef_recs:
-            is_typedef = 'typedef ' # if rec.isTypedef else ''
-            undef_rec_decls.append(is_typedef + 'struct %s %s;' % (rec.name, rec.name))
+        undef_vars = ' '.join(undef_vars_list)
 
-        # Add actual decls
-        for rec in undef_recs:
-            is_typedef = 'typedef ' # if rec.isTypedef else ''
-            undef_rec_decls.append(is_typedef + tokens_to_str(rec.tokens) + ' ' + rec.name + ';')
+        for ut in undef_typedefed_fns:
+            undef_vars = undef_vars.replace(ut, 'void')
 
-        return undef_rec_decls + list(set(undef_vars))
+        return undef_vars
 
     def wrap_in_function(body):
         return 'int main() { ' + body + ' }'
@@ -187,7 +259,7 @@ def loops_to_infos(loops, meta):
         return result.stdout
 
     def compile_check(src):
-        p1 = subprocess.Popen(['clang', '-x', 'c', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        p1 = subprocess.Popen(['clang', '-x', 'c', '-c', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         p1_out = p1.communicate(input=src.encode())[0]
         return p1.returncode
 
@@ -200,16 +272,15 @@ def loops_to_infos(loops, meta):
         if meta['filename'] == '/home/alex/.local/share/compy-Learn/1.0/OpencvDataset/content/libavfilter/vsrc_testsrc.c':
             print('foo')
 
-        undef_vars_list = get_undef_vars(loop)
-        undef_vars = ' '.join(undef_vars_list)
+        undef_vars = get_undef_vars(loop)
 
         includes = '#include <stdint.h>\n'
         includes += '#include <stdio.h>\n'
 
         src = indent(includes + '\n\n' + undef_vars + '\n\n' + function)
 
-        print(meta['filename'])
-        print(src)
+#        print(meta['filename'])
+#        print(src)
         loop_infos.append({
             'meta': {
                 'max_loop_depth': depth,

@@ -67,6 +67,7 @@ class ExtractorASTVisitor
   CFGBlockInfoPtr getInfo(const ::clang::CFGBlock &block);
   StmtInfoPtr getInfo(const ::clang::Stmt &stmt);
   DeclInfoPtr getInfo(const ::clang::Decl &decl, bool consumeTokens);
+  EnumDeclInfoPtr getInfo(const ::clang::EnumDecl &stmt, bool consumeTokens);
   RecordInfoPtr getInfo(const ::clang::RecordDecl &decl, bool consumeTokens);
 
  private:
@@ -77,6 +78,7 @@ class ExtractorASTVisitor
   std::unordered_map<const ::clang::Stmt *, StmtInfoPtr> stmtInfos_;
   std::unordered_map<const ::clang::CFGBlock *, CFGBlockInfoPtr> cfgBlockInfos_;
   std::unordered_map<const ::clang::Decl *, DeclInfoPtr> declInfos_;
+  std::unordered_map<const ::clang::Decl *, EnumDeclInfoPtr> enumDeclInfos_;
   std::unordered_map<const ::clang::RecordDecl *, RecordInfoPtr> recordInfos_;
 };
 

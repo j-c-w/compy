@@ -55,6 +55,12 @@ using OperandInfoPtr = std::shared_ptr<OperandInfo>;
 struct DeclInfo;
 using DeclInfoPtr = std::shared_ptr<DeclInfo>;
 
+struct EnumDeclInfo;
+using EnumDeclInfoPtr = std::shared_ptr<EnumDeclInfo>;
+
+struct TypedefDeclInfo;
+using TypedefDeclInfoPtr = std::shared_ptr<TypedefDeclInfo>;
+
 struct StmtInfo;
 using StmtInfoPtr = std::shared_ptr<StmtInfo>;
 
@@ -97,6 +103,25 @@ struct DeclInfo : OperandInfo {
   }
 };
 
+struct EnumDeclInfo : IVisitee {
+  std::string name;
+  std::vector<TokenInfo> tokens;
+
+  void accept(IVisitor* v) override {
+    v->visit(this);
+  }
+}
+
+;struct TypedefDeclInfo : IVisitee {
+  std::string name;
+  std::vector<TokenInfo> tokens;
+
+  void accept(IVisitor* v) override {
+    v->visit(this);
+  }
+};
+
+
 struct StmtInfo : OperandInfo {
   std::string name;
   std::vector<TokenInfo> tokens;
@@ -116,7 +141,8 @@ struct RecordInfo : OperandInfo {
   bool isTypedef;
   std::vector<TokenInfo> tokens;
   std::vector<RecordInfoPtr> referencedRecords;
-  std::vector<DeclInfoPtr> referencedEnums;
+  std::vector<EnumDeclInfoPtr> referencedEnums;
+  std::vector<DeclInfoPtr> referencedTypedefs;
 
   void accept(IVisitor* v) override {
     v->visit(this);

@@ -138,6 +138,10 @@ void registerClangExtractor(py::module m_parent) {
       .def_readonly("type", &cg::DeclInfo::type)
       .def_readonly("recordType", &cg::DeclInfo::recordType);
 
+  py::class_<cg::EnumDeclInfo, std::shared_ptr<cg::EnumDeclInfo>>(m_graph, "EnumDeclInfo")
+      .def_readonly("name", &cg::EnumDeclInfo::name)
+      .def_readonly("tokens", &cg::EnumDeclInfo::tokens);
+
   py::class_<cg::FunctionInfo, std::shared_ptr<cg::FunctionInfo>>(
       m_graph, "FunctionInfo")
       .def("accept", &cg::FunctionInfo::accept)
@@ -165,7 +169,8 @@ void registerClangExtractor(py::module m_parent) {
       .def_readonly("isTypedef", &cg::RecordInfo::isTypedef)
       .def_readonly("tokens", &cg::RecordInfo::tokens)
       .def_readonly("referencedRecords", &cg::RecordInfo::referencedRecords)
-      .def_readonly("referencedEnums", &cg::RecordInfo::referencedEnums);
+      .def_readonly("referencedEnums", &cg::RecordInfo::referencedEnums)
+      .def_readonly("referencedTypedefs", &cg::RecordInfo::referencedTypedefs);
 
   py::class_<cg::TokenInfo, std::shared_ptr<cg::TokenInfo>>(m_graph,
                                                             "TokenInfo")

@@ -48,6 +48,44 @@ constexpr char kProgram6[] =
     "  return st2.x;\n"
     "  return st2.x;\n"
         "}";
+constexpr char kProgram7[] =
+    "enum suit {\n"
+    "    club = 0,\n"
+    "    diamonds = 10,\n"
+    "    hearts = 20,\n"
+    "    spades = 3,\n"
+    "};"
+    "struct {\n"
+    "  int x;\n"
+    "  enum suit s;\n"
+    "} st2;\n"
+    "\n"
+    "int foo() {\n"
+    "  return st2.x;\n"
+    "}";
+constexpr char kProgram8[] =
+    "typedef struct st {\n"
+    "  int x[1337];\n"
+    "  int y;\n"
+    "} st;\n"
+    "struct {\n"
+    "  int x;\n"
+    "  int *(*foobar)(st* w, int h);\n"
+    "} st2;\n"
+    "\n"
+    "int foo() {\n"
+    "  return st2.x;\n"
+    "}";
+constexpr char kProgram9[] =
+    "typedef int foobar;\n"
+    "struct {\n"
+    "  int x;\n"
+    "  foobar* z;\n"
+    "} st2;\n"
+    "\n"
+    "int foo() {\n"
+    "  return st2.x;\n"
+    "}";
 
 // LLVM samples
 constexpr char kLLVM1[] =
