@@ -1,3 +1,5 @@
+import os.path
+
 import pytest
 import itertools
 import subprocess
@@ -7,7 +9,7 @@ import sqlite3
 
 from compy.datasets import LivermorecDataset
 from compy.datasets import OpenCLDevmapDataset
-from compy.datasets import OpencvDataset
+from compy.datasets import GeneralDataset
 from compy.datasets import PolybenchDataset
 from compy.representations import RepresentationBuilder
 
@@ -269,9 +271,6 @@ def loops_to_infos(loops, meta):
         body = tokens_to_str(body_token_list)
         function = wrap_in_function(body)
 
-        if meta['filename'] == '/home/alex/.local/share/compy-Learn/1.0/OpencvDataset/content/libavfilter/vsrc_testsrc.c':
-            print('foo')
-
         undef_vars = get_undef_vars(loop)
 
         includes = '#include <stdint.h>\n'
@@ -287,7 +286,8 @@ def loops_to_infos(loops, meta):
                 'num_tokens': len(body_token_list),
                 'stmt_counts': get_statement_counts(loop),
                 'filename': meta['filename'],
-                'clang_returncode': compile_check(src)
+                'dataset_name': meta['dataset_name'],
+                'clang_returncode': 1 # compile_check(src)
             },
             'src': src,
             'body': indent(body)
@@ -324,8 +324,11 @@ class ASTGraphBuilder(RepresentationBuilder):
 
 datasets = [
   # LivermorecDataset()
-  OpencvDataset()
-  #PolybenchDataset()
+  # GeneralDataset('https://github.com/libav/libav.git', 'libav'),
+  # GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
+  # GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick')
+  # GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage')
+  GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'DevIL')
 ]
 
 loop_infos_flat = []
@@ -360,29 +363,36 @@ for ds in datasets:
     loop_infos_flat += [flatten_dict(x) for x in builder.loop_infos]
 
 
-# Store in SQL DB
-all_keys = set(itertools.chain.from_iterable([x.keys() for x in loop_infos_flat]))
-int_keys = {x for x in all_keys if x.startswith('meta')}
+    # Store in SQL DB
+    all_keys = set(itertools.chain.from_iterable([x.keys() for x in loop_infos_flat]))
+    int_keys = {x for x in all_keys if x.startswith('meta')}
 
-# establish connection to sqlite database and save into db
-conn = sqlite3.connect('loops.db')
-c = conn.cursor()
+    filename = 'loops.db'
+    is_new_table = not os.path.isfile(filename)
 
-# create a sqlite3 database to store the dictionary values
-def create_table():
-    int_cols = ', '.join([x + ' INT' for x in int_keys])
-    cmd = 'CREATE TABLE IF NOT EXISTS loops(src TEXT, body TEXT, ' + int_cols + ')'
-    print(cmd)
-    c.execute(cmd)
+    conn = sqlite3.connect(filename)
+    c = conn.cursor()
 
-create_table()
 
-for loop_info in loop_infos_flat:
-    columns = ', '.join(loop_info.keys())
-    placeholders = ', '.join('?' * len(loop_info))
-    sql = 'INSERT INTO loops ({}) VALUES ({})'.format(columns, placeholders)
-    c.execute(sql, list(loop_info.values()))
+    if is_new_table:
+        int_cols = ', '.join([x + ' INT' for x in int_keys])
+        cmd = 'CREATE TABLE IF NOT EXISTS loops(src TEXT, body TEXT, ' + int_cols + ')'
+        print(cmd)
+        c.execute(cmd)
+    else:
+        existing_cols = [col[1] for col in c.execute('pragma table_info(loops)').fetchall()]
+        new_cols = list(set(int_keys) - set(existing_cols))
+        for int_col in [x + ' INT' for x in new_cols]:
+            cmd = 'ALTER TABLE loops ADD COLUMN ' + int_col + ';'
+            print(cmd)
+            c.execute(cmd)
 
-conn.commit()
+    for loop_info in loop_infos_flat:
+        columns = ', '.join(loop_info.keys())
+        placeholders = ', '.join('?' * len(loop_info))
+        sql = 'INSERT INTO loops ({}) VALUES ({})'.format(columns, placeholders)
+        c.execute(sql, list(loop_info.values()))
+
+    conn.commit()
 
 print('done')
