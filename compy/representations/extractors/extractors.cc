@@ -136,7 +136,8 @@ void registerClangExtractor(py::module m_parent) {
       .def_readonly("nameToken", &cg::DeclInfo::nameToken)
       .def_readonly("tokens", &cg::DeclInfo::tokens)
       .def_readonly("type", &cg::DeclInfo::type)
-      .def_readonly("recordType", &cg::DeclInfo::recordType);
+      .def_readonly("recordType", &cg::DeclInfo::recordType)
+      .def_readonly("referencedTypedef", &cg::DeclInfo::referencedTypedef);
 
   py::class_<cg::EnumDeclInfo, std::shared_ptr<cg::EnumDeclInfo>>(m_graph, "EnumDeclInfo")
       .def_readonly("name", &cg::EnumDeclInfo::name)

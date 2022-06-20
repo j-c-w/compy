@@ -86,6 +86,18 @@ constexpr char kProgram9[] =
     "int foo() {\n"
     "  return st2.x;\n"
     "}";
+constexpr char kProgram10[] =
+    "typedef int foobar;\n"
+    "int foo() {\n"
+    "  foobar x = 4;"
+    "  return x;\n"
+    "}";
+constexpr char kProgram11[] =
+    "typedef int foobar;\n"
+    "foobar foo() {\n"
+    "  foobar x[10];"
+    "  return x[1];\n"
+    "}";
 
 // LLVM samples
 constexpr char kLLVM1[] =

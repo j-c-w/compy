@@ -96,6 +96,7 @@ struct DeclInfo : OperandInfo {
   std::string kind;
   std::vector<TokenInfo> tokens;
   TokenInfo nameToken;
+  DeclInfoPtr referencedTypedef;
 
   void accept(IVisitor* v) override {
     v->visit(this);

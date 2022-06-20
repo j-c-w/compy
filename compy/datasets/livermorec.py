@@ -42,7 +42,7 @@ class LivermorecDataset(dataset.Dataset):
 #        try:
         extractionInfo = builder.string_to_info(source_code)
         for functionInfo in extractionInfo.functionInfos:
-            meta = {'filename': filename}
+            meta = {'dataset_name': 'livermorec', 'filename': filename}
             sample = builder.info_to_representation(functionInfo, visitor, meta)
 
 #        except Exception as e:

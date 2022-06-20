@@ -217,6 +217,26 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
         info->recordType = getInfo(*rd, true);
       }
     }
+
+    // Collect typedef
+    if (tyIt->isArrayType()) {
+      if (const TypedefType *tt = tyIt->getArrayElementTypeNoTypeQual()->getAs<TypedefType>()) {
+        const TypedefNameDecl *tnd = tt->getDecl();
+        info->referencedTypedef = getInfo(*tnd, true);
+      }
+    }
+
+//    if (tyIt->isFunctionType()) {
+//      if (const FunctionProtoType *tt = tyIt->getAs<FunctionProtoType>()) {
+//        tt->getReturnType()
+//        info->referencedTypedef = getInfo(*tnd, true);
+//      }
+//    }
+
+    if (const TypedefType *tt = tyIt->getAs<TypedefType>()) {
+      const TypedefNameDecl *tnd = tt->getDecl();
+      info->referencedTypedef = getInfo(*tnd, true);
+    }
   }
 
   // Collect tokens
@@ -284,6 +304,14 @@ RecordInfoPtr ExtractorASTVisitor::getInfo(const RecordDecl &decl, bool consumeT
     }
     // - From function pointers in fields
     std::string str = tyIt->getTypeClassName();
+
+    if (tyIt->isArrayType()) {
+      if (const TypedefType *tt = tyIt->getArrayElementTypeNoTypeQual()->getAs<TypedefType>()) {
+        const TypedefNameDecl *tnd = tt->getDecl();
+        info->referencedTypedefs.push_back(getInfo(*tnd, true));
+      }
+    }
+
     if (const TypedefType *tt = tyIt->getAs<TypedefType>()) {
       const TypedefNameDecl *tnd = tt->getDecl();
       info->referencedTypedefs.push_back(getInfo(*tnd, true));

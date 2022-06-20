@@ -173,10 +173,9 @@ def loops_to_infos(loops, meta):
         return order
 
 
-    def get_undef_vars(stmt):
+    def get_undef_record_decls(stmt):
         # Record decls
         stmts = get_all_stmts(stmt)
-        undef_vars = []
         undef_recs = []
         for src_stmt in stmts:
             if hasattr(src_stmt, 'ref_relations'):
@@ -188,73 +187,107 @@ def loops_to_infos(loops, meta):
                                 if rec not in undef_recs:
                                     undef_recs.append(rec)
 
-        # - Add tyedefed functions
+        return undef_recs
+
+
+    def declare_functions_used_in_records(undef_recs):
         undef_typedefed_fns = []
         for rec in undef_recs:
             for td in rec.referencedTypedefs:
                 if td.type == 'Paren':
                     undef_typedefed_fns.append(td.name)
+        return undef_typedefed_fns
 
-        # - Add forward decls
-        undef_rec_fwd_decls = []
-        for rec in undef_recs:
-            if '(anonymous)' in rec.name:
-                continue
-            undef_rec_fwd_decls.append('typedef struct %s %s;' % (rec.name, rec.name))
+    def declare_types_used_in_vars(stmt):
+        used_typedefs = {}
 
-        # - Add actual decls
-        undef_rec_decls = []
-        for rec in undef_recs:
-            if '(anonymous)' in rec.name:
-                continue
-            undef_rec_decls.append('typedef ' + tokens_to_str(rec.tokens) + ' ' + rec.name + ';')
+        # Typedefs used by vars in the body
+        stmts = get_undef_vars(stmt)
+        for stmt in stmts:
+            if hasattr(stmt, 'referencedTypedef') and stmt.referencedTypedef:
+                if stmt.referencedTypedef.name not in used_typedefs:
+                    used_typedefs[stmt.referencedTypedef.name] = []
+                used_typedefs[stmt.referencedTypedef.name].append(tokens_to_str(stmt.referencedTypedef.tokens) + ';')
 
-        # Enums
+        return used_typedefs
+
+
+    def declare_enums_used_in_records(undef_recs):
         enum_decls = []
         for rec in undef_recs:
             for en in rec.referencedEnums:
                 enum_decls.append(tokens_to_str(en.tokens) + ';')
-        enum_decls = [en for en in set(enum_decls) if en[4:len(en)-2] not in ' '.join(set(undef_rec_decls))]
+        return enum_decls
 
-        # Undef Vars
+
+    def declare_types_used_in_records(undef_recs):
+        used_typedefs = {}
+
+        # Referenced builtin typedefs
+        for rec in undef_recs:
+            for td in rec.referencedTypedefs:
+                if td.type == 'Builtin':
+                    if td.name not in used_typedefs:
+                        used_typedefs[td.name] = []
+                    used_typedefs[td.name].append(tokens_to_str(td.tokens) + ';')
+
+        # Forward decls
+        for rec in undef_recs:
+            if '(anonymous)' in rec.name:
+                continue
+
+            if rec.name not in used_typedefs:
+                used_typedefs[rec.name] = []
+            used_typedefs[rec.name].append('typedef struct %s %s;' % (rec.name, rec.name))
+
+
+        # Actual decls
+        for rec in undef_recs:
+            if '(anonymous)' in rec.name:
+                continue
+
+            if rec.name not in used_typedefs:
+                used_typedefs[rec.name] = []
+            used_typedefs[rec.name].append('typedef ' + tokens_to_str(rec.tokens) + ' ' + rec.name + ';')
+
+        return used_typedefs
+
+
+    def get_undef_vars(stmt):
         stmts = get_all_stmts(stmt)
         undef_vars = []
-        undef_recs = []
+
         for src_stmt in stmts:
             if hasattr(src_stmt, 'ref_relations'):
                 for ref_stmt in src_stmt.ref_relations:
                     if ref_stmt not in stmts:
-                        if ref_stmt.kind == 'Function':
-                            args_start_idx = ref_stmt.type.index('(')
-                            undef_var_str = '%s %s %s;' % (ref_stmt.type[0:args_start_idx], ref_stmt.name, ref_stmt.type[args_start_idx:])
+                        undef_vars.append(ref_stmt)
 
-                        else:
-                            if '(*)' in ref_stmt.type:
-                                undef_var_str = ref_stmt.type.replace('(*)', '(*' + ref_stmt.name + ')') + ';'
-                            elif '[' in ref_stmt.type:
-                                undef_var_str = ref_stmt.type.replace('[', ' ' + ref_stmt.name + '[', 1) + ';'
-                            else:
-                                undef_var_str = '%s %s;' % (ref_stmt.type, ref_stmt.name)
+        return list(set(undef_vars))
 
-                            if ref_stmt.name in ''.join(enum_decls) and ref_stmt.name.isupper():
-                                continue
+    def define_undef_vars(stmt, enum_decls):
+        stmts = get_undef_vars(stmt)
+        undef_vars = []
 
-                        undef_vars.append(undef_var_str)
+        for ref_stmt in stmts:
+            if ref_stmt.kind == 'Function':
+                args_start_idx = ref_stmt.type.index('(')
+                undef_var_str = '%s %s %s' % (ref_stmt.type[0:args_start_idx], ref_stmt.name, ref_stmt.type[args_start_idx:])
 
-        undef_vars_list = list(set(enum_decls)) \
-               + list(set(undef_rec_fwd_decls)) \
-               + undef_rec_decls \
-               + list(set(undef_vars))
+            else:
+                if '(*)' in ref_stmt.type:
+                    undef_var_str = ref_stmt.type.replace('(*)', '(*' + ref_stmt.name + ')')
+                elif '[' in ref_stmt.type:
+                    undef_var_str = ref_stmt.type.replace('[', ' ' + ref_stmt.name + '[', 1)
+                else:
+                    undef_var_str = '%s %s' % (ref_stmt.type, ref_stmt.name)
 
-        undef_vars = ' '.join(undef_vars_list)
+                if ref_stmt.name in ''.join(enum_decls) and ref_stmt.name.isupper():
+                    continue
 
-        for ut in undef_typedefed_fns:
-            undef_vars = undef_vars.replace(ut, 'void')
+            undef_vars.append(undef_var_str)
 
-        return undef_vars
-
-    def wrap_in_function(body):
-        return 'int main() { ' + body + ' }'
+        return list(set(undef_vars))
 
     def indent(c_unindented):
         result = subprocess.run(['indent'], input=c_unindented, capture_output=True, text=True)
@@ -267,19 +300,41 @@ def loops_to_infos(loops, meta):
 
     loop_infos = []
     for loop, depth in loops.items():
-        body_token_list = get_tokens(loop)
-        body = tokens_to_str(body_token_list)
-        function = wrap_in_function(body)
-
-        undef_vars = get_undef_vars(loop)
-
+        # Headers
         includes = '#include <stdint.h>\n'
         includes += '#include <stdio.h>\n'
 
-        src = indent(includes + '\n\n' + undef_vars + '\n\n' + function)
+        # Define undefined types
+        undef_recs = get_undef_record_decls(loop)
+
+        types_in_record = declare_types_used_in_records(undef_recs)
+        types_in_vars = declare_types_used_in_vars(loop)
+
+        # For all recorded typedefs, get the ones with the largest sizes (is the definition)
+        types = []
+        for name, defs in {**types_in_record, **types_in_vars}.items():
+            types.append(max(list(set(defs)), key=len))
+
+        # Define undefined variables
+        enums = declare_enums_used_in_records(undef_recs)
+        vars = define_undef_vars(loop, enums)
+
+        # fns = declare_functions_used_in_records(undef_recs)
+        # for ut in fns:
+        #     vars = vars.replace(ut, 'int')
+        #     types_in_record = types_in_record.replace(ut, 'int')
+
+        # Function
+        body_token_list = get_tokens(loop)
+        body = tokens_to_str(body_token_list)
+        function = 'int fn(' + ', '.join(vars) + ') { ' + body + ' }'
+
+        src = indent(includes + '\n\n'
+                     + '\n'.join(types) + '\n\n'
+                     + function)
 
 #        print(meta['filename'])
-#        print(src)
+#         print(src)
         loop_infos.append({
             'meta': {
                 'max_loop_depth': depth,
@@ -287,7 +342,7 @@ def loops_to_infos(loops, meta):
                 'stmt_counts': get_statement_counts(loop),
                 'filename': meta['filename'],
                 'dataset_name': meta['dataset_name'],
-                'clang_returncode': 1 # compile_check(src)
+                'clang_returncode': compile_check(src)
             },
             'src': src,
             'body': indent(body)
@@ -323,12 +378,14 @@ class ASTGraphBuilder(RepresentationBuilder):
 
 
 datasets = [
-  # LivermorecDataset()
-  # GeneralDataset('https://github.com/libav/libav.git', 'libav'),
-  # GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
-  # GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick')
-  # GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage')
-  GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'DevIL')
+  LivermorecDataset(),
+  GeneralDataset('https://github.com/libav/libav.git', 'libav'),
+  GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
+  GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick'),
+  GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage'),
+  GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'DevIL'),
+  GeneralDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg'),
+  # GeneralDataset('https://github.com/opencv/opencv.git', 'opencv'),
 ]
 
 loop_infos_flat = []
@@ -358,7 +415,7 @@ for ds in datasets:
         print('-' * 80)
         print(loop_info['meta'])
         print()
-        print(loop_info['body'])
+        print(loop_info['src'])
 
     loop_infos_flat += [flatten_dict(x) for x in builder.loop_infos]
 

@@ -141,7 +141,10 @@ class GeneralDataset(Dataset):
 
             invocation['includes'] += [os.path.dirname(invocation['filename'])]
             includes = [(os.path.join(self.content_dir, x), ClangDriver.IncludeDirType.User) for x in invocation['includes']]
-            includes += [('/usr/local/include', ClangDriver.IncludeDirType.System),
+            includes += [('/usr/include/c++/9', ClangDriver.IncludeDirType.System),
+                         ('/usr/include/x86_64-linux-gnu/c++/9', ClangDriver.IncludeDirType.System),
+                         ('/usr/include/c++/9/backward', ClangDriver.IncludeDirType.System),
+                         ('/usr/local/include', ClangDriver.IncludeDirType.System),
                          ('/usr/lib/llvm-10/lib/clang/10.0.0/include', ClangDriver.IncludeDirType.System),
                          ('/usr/include/x86_64-linux-gnu', ClangDriver.IncludeDirType.System),
                          ('/usr/include', ClangDriver.IncludeDirType.System)]
@@ -181,5 +184,5 @@ class GeneralDataset(Dataset):
                 {
                     "x": {"code_rep": sample},
                 }
-            ],
+            for sample in samples],
         }
