@@ -12,11 +12,11 @@ from compy.utils import flatten_dict
 
 
 datasets = [
-  # LivermorecDataset(),
-  # GeneralDataset('https://github.com/libav/libav.git', 'libav'),
-  # GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
-  # GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick'),
-  # GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage'),
+  LivermorecDataset(),
+  GeneralDataset('https://github.com/libav/libav.git', 'libav'),
+  GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
+  GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick'),
+  GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage'),
   GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'DevIL'),
   GeneralDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg'),
   # GeneralDataset('https://github.com/opencv/opencv.git', 'opencv'),
