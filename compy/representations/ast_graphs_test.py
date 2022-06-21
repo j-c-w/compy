@@ -5,7 +5,10 @@ import pytest
 
 from compy.representations.extractors.extractors import Visitor
 from compy.representations.extractors.extractors import clang
+from compy.representations.extractors.extractors import ClangDriver
 from compy.representations.ast_graphs import ASTGraphBuilder
+from compy.representations.ast_graphs import ASTCodeBuilder
+from compy.representations.ast_graphs import ASTCodeVisitor
 from compy.representations.ast_graphs import ASTVisitor
 from compy.representations.ast_graphs import ASTDataVisitor
 from compy.representations.ast_graphs import ASTDataCFGVisitor
@@ -33,6 +36,38 @@ int fib(int x) {
 }
 """
 
+program_loops = """
+int* foo (int x, int* y) {
+  for (int i=0; i<x; i++) {
+    y[x] += 1;
+  }
+  return y;
+}
+"""
+
+program_loops_2_nested = """
+int* foo (int x, int* y) {
+  for (int i=0; i<x; i++) {
+    for (int j=0; j<i; j++) {
+      y[x] += 1;
+    }
+  }
+  return y;
+}
+"""
+
+program_loops_3_nested = """
+int* foo (int x, int* y) {
+  for (int i=0; i<x; i++) {
+    for (int j=0; j<i; j++) {
+      for (int z=0; z<j; z++) {
+        y[x] += 1;
+      }
+    }
+  }
+  return y;
+}
+"""
 
 # Construction
 def test_construct_with_custom_visitor():
@@ -120,3 +155,15 @@ def test_token_visitor():
     leaves = ast.get_leaf_node_list()
     labels = ast.get_node_str_list()
     assert [labels[n] for n in leaves] == tokens
+
+def test_code_builder_innermost_2_nested():
+    driver = ClangDriver(
+        ClangDriver.ProgrammingLanguage.C,
+        ClangDriver.OptimizationLevel.O3,
+        [],
+        []
+    )
+    builder = ASTCodeBuilder(driver)
+    info = builder.string_to_info(program_loops)
+    loops = builder.info_to_representation(info.functionInfos[0], ASTCodeVisitor, {})
+    print(loops)
