@@ -392,7 +392,7 @@ class ASTCodeBuilder(RepresentationBuilder):
                     used_typedefs[stmt.referencedTypedef.name].append(tokens_to_str(stmt.referencedTypedef.tokens) + ';')
 
                 # This is an anonymous struct
-                if hasattr(stmt, 'recordType') and stmt.recordType:
+                if hasattr(stmt, 'recordType') and stmt.recordType and 'anonymous struct' in stmt.type:
                     if stmt.name not in used_typedefs:
                         used_typedefs[stmt.name] = []
                     used_typedefs[stmt.name].append(tokens_to_str(stmt.recordType.tokens) + ' ' + stmt.name + ' ' + ';')
