@@ -391,6 +391,12 @@ class ASTCodeBuilder(RepresentationBuilder):
                         used_typedefs[stmt.referencedTypedef.name] = []
                     used_typedefs[stmt.referencedTypedef.name].append(tokens_to_str(stmt.referencedTypedef.tokens) + ';')
 
+                # This is an anonymous struct
+                if hasattr(stmt, 'recordType') and stmt.recordType:
+                    if stmt.name not in used_typedefs:
+                        used_typedefs[stmt.name] = []
+                    used_typedefs[stmt.name].append(tokens_to_str(stmt.recordType.tokens) + ' ' + stmt.name + ' ' + ';')
+
             return used_typedefs
 
 
@@ -465,6 +471,9 @@ class ASTCodeBuilder(RepresentationBuilder):
                         undef_var_str = '%s %s' % (ref_stmt.type, ref_stmt.name)
 
                     if ref_stmt.name in ''.join(enum_decls) and ref_stmt.name.isupper():
+                        continue
+
+                    if 'anonymous struct' in ref_stmt.type:
                         continue
 
                 undef_vars.append(undef_var_str)
