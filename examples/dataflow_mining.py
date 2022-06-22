@@ -1,4 +1,5 @@
 import os.path
+import itertools
 
 import sqlite3
 
@@ -12,7 +13,7 @@ from compy.utils import flatten_dict
 
 
 datasets = [
-  LivermorecDataset(),
+  # LivermorecDataset(),
   GeneralDataset('https://github.com/libav/libav.git', 'libav'),
   GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
   GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick'),
@@ -57,7 +58,7 @@ for ds in datasets:
 
     if is_new_table:
         int_cols = ', '.join([x + ' INT' for x in int_keys])
-        cmd = 'CREATE TABLE IF NOT EXISTS loops(src TEXT, body TEXT, ' + int_cols + ')'
+        cmd = 'CREATE TABLE IF NOT EXISTS loops(src TEXT, body TEXT, filename TEXT, dataset_name TEXT, ' + int_cols + ')'
         print(cmd)
         c.execute(cmd)
     else:
