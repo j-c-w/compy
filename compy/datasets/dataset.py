@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import py
+import traceback
 from enum import Enum
 
 from appdirs import user_data_dir
@@ -64,7 +65,7 @@ class GeneralDataset(Dataset):
     def __init__(self, uri, name, subdir=None):
         super().__init__(name)
 
-#        uri = "https://github.com/libav/libav.git"
+        #        uri = "https://github.com/libav/libav.git"
         self.clone_git(uri)
         if subdir:
             self.content_dir = os.path.join(self.content_dir, subdir)
@@ -84,7 +85,7 @@ class GeneralDataset(Dataset):
         elif os.path.exists(os.path.join(self.content_dir, 'CMakeLists.txt')):
             return BuildSystem.CMAKE
 
-    def preprocess(self, builder, visitor, start_at=False, num_samples=None, randomly_select_samples=False):
+    def run_and_record_compilations(self):
         # Record compilation invocations
         build_system = self.detect_build_system()
         if build_system == BuildSystem.CONFIGURE:
@@ -132,8 +133,17 @@ class GeneralDataset(Dataset):
 
             invocations.append(invocation)
 
+        return invocations
 
-
+    def preprocess(self, builder, visitor, start_at=False, num_samples=None, randomly_select_samples=False):
+        invocations_file = os.path.join(self.content_dir, 'invocations.json')
+        if os.path.isfile(invocations_file):
+            with open(invocations_file, 'r') as f:
+                invocations = json.load(f)
+        else:
+            invocations = self.run_and_record_compilations()
+            with open(invocations_file, 'w') as f:
+                json.dump(invocations, f)
 
         samples = []
         for invocation in tqdm(invocations[:10], desc="Source Code -> IR+ -> Code rep in %s" % self.content_dir):
@@ -177,6 +187,7 @@ class GeneralDataset(Dataset):
 
             except (RuntimeError, FileNotFoundError) as e:
                 print("Error", invocation)
+                traceback.print_exc()
                 pass
 
         return {
@@ -184,5 +195,5 @@ class GeneralDataset(Dataset):
                 {
                     "x": {"code_rep": sample},
                 }
-            for sample in samples],
+                for sample in samples],
         }
