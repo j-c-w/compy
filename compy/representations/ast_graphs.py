@@ -521,6 +521,7 @@ class ASTCodeBuilder(RepresentationBuilder):
             function = 'int fn(' + ', '.join(vars) + ') { ' + body + ' }'
 
             src = indent(includes + '\n\n'
+                         + '\n'.join(enums) + '\n\n'
                          + '\n'.join(types) + '\n\n'
                          + function)
 
