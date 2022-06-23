@@ -4,6 +4,7 @@ import itertools
 import sqlite3
 
 from compy.datasets import GeneralDataset
+from compy.datasets import LivermorecDataset
 from compy.representations.extractors.extractors import Visitor
 from compy.representations.ast_graphs import ASTCodeBuilder
 from compy.representations.ast_graphs import ASTCodeVisitor
@@ -15,11 +16,11 @@ from compy.utils import flatten_dict
 datasets = [
   # LivermorecDataset(),
   GeneralDataset('https://github.com/libav/libav.git', 'libav'),
-  GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
-  GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick'),
-  GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage'),
-  GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'DevIL'),
-  GeneralDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg'),
+  # GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
+  # GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick'),
+  # GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage'),
+  # GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'DevIL'),
+  # GeneralDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg'),
   # GeneralDataset('https://github.com/opencv/opencv.git', 'opencv'),
 ]
 
