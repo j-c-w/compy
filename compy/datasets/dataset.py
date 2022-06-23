@@ -136,7 +136,7 @@ class GeneralDataset(Dataset):
 
 
         samples = []
-        for invocation in tqdm(invocations, desc="Source Code -> IR+ -> Code rep in %s" % self.content_dir):
+        for invocation in tqdm(invocations[:10], desc="Source Code -> IR+ -> Code rep in %s" % self.content_dir):
             # print(invocation)
 
             invocation['includes'] += [os.path.dirname(invocation['filename'])]
