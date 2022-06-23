@@ -524,6 +524,9 @@ class ASTCodeBuilder(RepresentationBuilder):
                          + '\n'.join(types) + '\n\n'
                          + function)
 
+            print('/' * 80)
+            print(src)
+
             loop_info = {
                 'meta': {
                     'max_loop_depth': depth,

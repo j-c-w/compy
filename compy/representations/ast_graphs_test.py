@@ -23,51 +23,6 @@ int bar(int a) {
 }
 """
 
-program_fib = """
-int fib(int x) {
-    switch(x) {
-        case 0:
-            return 0;
-        case 1:
-            return 1;
-        default:
-            return fib(x-1) + fib(x-2);
-    }
-}
-"""
-
-program_loops = """
-int* foo (int x, int* y) {
-  for (int i=0; i<x; i++) {
-    y[x] += 1;
-  }
-  return y;
-}
-"""
-
-program_loops_2_nested = """
-int* foo (int x, int* y) {
-  for (int i=0; i<x; i++) {
-    for (int j=0; j<i; j++) {
-      y[x] += 1;
-    }
-  }
-  return y;
-}
-"""
-
-program_loops_3_nested = """
-int* foo (int x, int* y) {
-  for (int i=0; i<x; i++) {
-    for (int j=0; j<i; j++) {
-      for (int z=0; z<j; z++) {
-        y[x] += 1;
-      }
-    }
-  }
-  return y;
-}
-"""
 
 # Construction
 def test_construct_with_custom_visitor():
@@ -156,7 +111,9 @@ def test_token_visitor():
     labels = ast.get_node_str_list()
     assert [labels[n] for n in leaves] == tokens
 
-def test_code_builder_innermost_2_nested():
+
+#
+def build_compilable_code(src_in):
     driver = ClangDriver(
         ClangDriver.ProgrammingLanguage.C,
         ClangDriver.OptimizationLevel.O3,
@@ -164,6 +121,93 @@ def test_code_builder_innermost_2_nested():
         []
     )
     builder = ASTCodeBuilder(driver)
-    info = builder.string_to_info(program_loops)
-    loops = builder.info_to_representation(info.functionInfos[0], ASTCodeVisitor, {})
-    print(loops)
+    info = builder.string_to_info(src_in)
+    reps = builder.info_to_representation(info.functionInfos[0], ASTCodeVisitor, {})
+
+    return reps
+
+
+def test_code_builder_innermost_2_nested():
+    src = """
+    int* foo (int x, int* y) {
+      for (int i=0; i<x; i++) {
+        y[x] += 1;
+      }
+      return y;
+    }
+    """
+
+    reps = build_compilable_code(src)
+
+    assert all([r['meta']['clang_returncode'] is 0 for r in reps]) is True
+    assert len(reps) is 1
+    assert reps[0]['body'].count('for') is 1
+
+
+def test_code_builder_extract_innermost():
+    src = """
+    int* foo (int x, int* y) {
+      for (int i=0; i<x; i++) {
+        y[x] += 1;
+      }
+      return y;
+    }
+    """
+    reps = build_compilable_code(src)
+
+    assert all([r['meta']['clang_returncode'] is 0 for r in reps]) is True
+    assert len(reps) is 1
+    assert reps[0]['body'].count('for') is 1
+
+
+def test_code_builder_extract_innermost_2_nested():
+    src = """
+    int* foo (int x, int* y) {
+      for (int i=0; i<x; i++) {
+        for (int j=0; j<i; j++) {
+          y[x] += 1;
+        }
+      }
+      return y;
+    }
+    """
+    reps = build_compilable_code(src)
+
+    assert all([r['meta']['clang_returncode'] is 0 for r in reps]) is True
+    assert len(reps) is 1
+    assert reps[0]['body'].count('for') is 1
+
+
+def test_code_builder_extract_innermost_3_nested():
+    src = """
+    int* foo (int x, int* y) {
+      for (int i=0; i<x; i++) {
+        for (int j=0; j<i; j++) {
+          for (int z=0; z<j; z++) {
+            y[x] += 1;
+          }
+        }
+      }
+      return y;
+    }
+    """
+    reps = build_compilable_code(src)
+
+    assert all([r['meta']['clang_returncode'] is 0 for r in reps]) is True
+    assert len(reps) is 1
+    assert reps[0]['body'].count('for') is 1
+
+
+def test_code_builder_compile_anonymous_extern_struct():
+    src = """
+    extern struct {
+        int x;
+    } bar;
+    int foo () {
+      return bar.x;
+    }
+    """
+    reps = build_compilable_code(src)
+
+    assert all([r['meta']['clang_returncode'] is 0 for r in reps]) is True
+
