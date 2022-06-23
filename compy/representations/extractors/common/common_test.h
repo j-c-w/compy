@@ -98,6 +98,14 @@ constexpr char kProgram11[] =
     "  foobar x[10];"
     "  return x[1];\n"
     "}";
+constexpr char kProgram12[] =
+    "struct st2 {\n"
+    "  int x;\n"
+    "};\n"
+    "int foo() {\n"
+    "  struct st2 mys[10];"
+    "  return mys[1].x;\n"
+    "}";
 
 // LLVM samples
 constexpr char kLLVM1[] =

@@ -224,6 +224,10 @@ DeclInfoPtr ExtractorASTVisitor::getInfo(const Decl &decl, bool consumeTokens) {
         const TypedefNameDecl *tnd = tt->getDecl();
         info->referencedTypedef = getInfo(*tnd, true);
       }
+      else if (const RecordType *st = tyIt->getArrayElementTypeNoTypeQual()->getAs<RecordType>()) {
+        const RecordDecl *tnd = st->getDecl();
+        info->recordType = getInfo(*tnd, true);
+      }
     }
 
 //    if (tyIt->isFunctionType()) {
