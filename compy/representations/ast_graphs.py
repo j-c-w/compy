@@ -401,11 +401,11 @@ class ASTCodeBuilder(RepresentationBuilder):
 
 
         def declare_enums_used_in_records(undef_recs):
-            enum_decls = []
+            enum_decls = {}
             for rec in undef_recs:
                 for en in rec.referencedEnums:
-                    enum_decls.append(tokens_to_str(en.tokens) + ';')
-            return enum_decls
+                    enum_decls[tokens_to_str(en.tokens) + ';'] = True
+            return enum_decls.keys()
 
 
         def declare_types_used_in_records(undef_recs):
