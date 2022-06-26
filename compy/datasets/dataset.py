@@ -65,7 +65,6 @@ class GeneralDataset(Dataset):
     def __init__(self, uri, name, subdir=None):
         super().__init__(name)
 
-        #        uri = "https://github.com/libav/libav.git"
         self.clone_git(uri)
         if subdir:
             self.content_dir = os.path.join(self.content_dir, subdir)
@@ -73,6 +72,8 @@ class GeneralDataset(Dataset):
         self.programming_language = ClangDriver.ProgrammingLanguage.CPlusPlus
         self.additional_include_dirs = []
         self.compiler_flags = ['-Wno-return-type']
+
+        self.invocations = None
 
     def get_size(self):
         return 1
@@ -135,18 +136,25 @@ class GeneralDataset(Dataset):
 
         return invocations
 
-    def preprocess(self, builder, visitor, start_at=False, num_samples=None, randomly_select_samples=False):
-        invocations_file = os.path.join(self.content_dir, 'invocations.json')
-        if os.path.isfile(invocations_file):
-            with open(invocations_file, 'r') as f:
-                invocations = json.load(f)
-        else:
-            invocations = self.run_and_record_compilations()
-            with open(invocations_file, 'w') as f:
-                json.dump(invocations, f)
+    def get_invocations(self):
+        # Lazily load invocations
+        if not self.invocations:
+            invocations_file = os.path.join(self.content_dir, 'invocations.json')
+            if os.path.isfile(invocations_file):
+                with open(invocations_file, 'r') as f:
+                    self.invocations = json.load(f)
+            else:
+                self.invocations = self.run_and_record_compilations()
+                with open(invocations_file, 'w') as f:
+                    json.dump(self.invocations, f)
+        return self.invocations
+
+    def preprocess(self, builder, visitor, invocations=None):
+        if not invocations:
+            self.invocations = self.get_invocations()
 
         samples = []
-        for invocation in tqdm(invocations[:10], desc="Source Code -> IR+ -> Code rep in %s" % self.content_dir):
+        for invocation in tqdm(self.invocations, desc="Source Code -> IR+ -> Code rep in %s" % self.content_dir):
             # print(invocation)
 
             invocation['includes'] += [os.path.dirname(invocation['filename'])]
