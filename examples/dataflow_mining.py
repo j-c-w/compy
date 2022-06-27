@@ -30,13 +30,23 @@ FLAGS = flags.FLAGS
 
 datasets = [
   # LivermorecDataset(),
-  GeneralDataset('https://github.com/libav/libav.git', 'libav'),
-  GeneralDataset('https://github.com/mirror/x264.git', 'x264'),
-  GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick'),
-  GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage'),
-  GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'DevIL'),
-  GeneralDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg'),
-  # GeneralDataset('https://github.com/opencv/opencv.git', 'opencv'),
+
+  GeneralDataset('https://github.com/libav/libav.git', 'libav', 'Multimedia'),
+  GeneralDataset('https://github.com/mirror/x264.git', 'x264', 'Multimedia'),
+  GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick', 'Multimedia'),
+  GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage', 'Multimedia'),
+  GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'Multimedia', subdir='DevIL'),
+  GeneralDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg', 'Multimedia'),
+  # # GeneralDataset('https://github.com/opencv/opencv.git', 'opencv', 'Multimedia'),
+
+  GeneralDataset('https://github.com/xz-mirror/xz.git', 'xz', 'Compression'),
+  GeneralDataset('https://github.com/libarchive/bzip2.git', 'bzip2', 'Compression'),
+
+  # GeneralDataset('https://github.com/sqlite/sqlite.git', 'sqlite', 'Database'),
+  # GeneralDataset('https://github.com/postgres/postgres.git', 'postgresql', 'Database'),
+
+  GeneralDataset('https://github.com/pjreddie/darknet.git', 'DarkNet', 'Simlulation'),
+  GeneralDataset('https://github.com/LLNL/LULESH.git', 'lulesh', 'Simlulation'),
 ]
 
 def store(data, filename):
@@ -127,10 +137,23 @@ class ExtractTask(MultiProcessedTask):
         super().__init__(base_dir, num_processes, num_tasks, previous_task, verbose)
 
     def _load_tasks(self):
+        def report(ds_and_invocations):
+            invocations_by_dataset = {}
+            for ds, invocation in ds_and_invocations:
+                if ds not in invocations_by_dataset:
+                    invocations_by_dataset[ds] = []
+                invocations_by_dataset[ds].append(invocation)
+
+            for ds, invocations in invocations_by_dataset.items():
+                print('name: %s,\t\tnum_invocations: %d' % (ds.name, len(invocations)))
+
         ds_and_invocations = []
         for ds in datasets:
             for invocation in ds.get_invocations():
                 ds_and_invocations.append((ds, invocation))
+
+        report(ds_and_invocations)
+
         return ds_and_invocations
 
     def _process_tasks(self, indexed_tasks):
@@ -176,7 +199,11 @@ class ExtractTask(MultiProcessedTask):
                 print()
                 print(loop_info['src'])
 
-            loop_infos_flat += [flatten_dict(x) for x in builder.loop_infos]
+            loop_infos_flat = []
+            for x in builder.loop_infos:
+                loop_info_flat = flatten_dict(x)
+                x['meta']['domain'] = ds.domain
+                loop_infos_flat.append(loop_info_flat)
 
         return loop_infos_flat
 
@@ -265,7 +292,7 @@ def main(argv):
     t1 = ExtractTask(
         base_dir=FLAGS.out_dir,
         num_processes=num_cpus,
-        num_tasks=10)
+        num_tasks=8)
     t2 = ReduceTask(
         base_dir=FLAGS.out_dir,
         num_processes=num_cpus,

@@ -62,8 +62,9 @@ class BuildSystem(Enum):
 
 
 class GeneralDataset(Dataset):
-    def __init__(self, uri, name, subdir=None):
+    def __init__(self, uri, name, domain, subdir=None):
         super().__init__(name)
+        self.domain = domain
 
         self.clone_git(uri)
         if subdir:
@@ -79,12 +80,12 @@ class GeneralDataset(Dataset):
         return 1
 
     def detect_build_system(self):
-        if os.path.exists(os.path.join(self.content_dir, 'configure')):
+        if os.path.exists(os.path.join(self.content_dir, 'CMakeLists.txt')):
+            return BuildSystem.CMAKE
+        elif os.path.exists(os.path.join(self.content_dir, 'configure')):
             return BuildSystem.CONFIGURE
         elif os.path.exists(os.path.join(self.content_dir, 'Makefile')):
             return BuildSystem.MAKE
-        elif os.path.exists(os.path.join(self.content_dir, 'CMakeLists.txt')):
-            return BuildSystem.CMAKE
 
     def run_and_record_compilations(self):
         # Record compilation invocations
