@@ -13,7 +13,7 @@ from absl import app
 from absl import flags
 from typing import Mapping
 
-from compy.datasets import GeneralDataset
+from compy.datasets import GenericDataset
 from compy.datasets import LivermorecDataset
 from compy.representations.extractors.extractors import Visitor
 from compy.representations.ast_graphs import ASTCodeBuilder
@@ -29,24 +29,23 @@ flags.DEFINE_bool('debug', False, 'Single-process mode for debugging.')
 FLAGS = flags.FLAGS
 
 datasets = [
-  # LivermorecDataset(),
+  # GenericDataset('https://github.com/libav/libav.git', 'libav', 'Multimedia'),
+  # GenericDataset('https://github.com/mirror/x264.git', 'x264', 'Multimedia'),
+  # GenericDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick', 'Multimedia'),
+  # GenericDataset('https://github.com/WinMerge/freeimage.git', 'freeimage', 'Multimedia'),
+  # GenericDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'Multimedia', subdir='DevIL'),
+  # GenericDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg', 'Multimedia'),
+  # # GenericDataset('https://github.com/opencv/opencv.git', 'opencv', 'Multimedia'),
 
-  GeneralDataset('https://github.com/libav/libav.git', 'libav', 'Multimedia'),
-  GeneralDataset('https://github.com/mirror/x264.git', 'x264', 'Multimedia'),
-  GeneralDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick', 'Multimedia'),
-  GeneralDataset('https://github.com/WinMerge/freeimage.git', 'freeimage', 'Multimedia'),
-  GeneralDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'Multimedia', subdir='DevIL'),
-  GeneralDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg', 'Multimedia'),
-  # # GeneralDataset('https://github.com/opencv/opencv.git', 'opencv', 'Multimedia'),
-
-  GeneralDataset('https://github.com/xz-mirror/xz.git', 'xz', 'Compression'),
-  GeneralDataset('https://github.com/libarchive/bzip2.git', 'bzip2', 'Compression'),
-
-  # GeneralDataset('https://github.com/sqlite/sqlite.git', 'sqlite', 'Database'),
-  # GeneralDataset('https://github.com/postgres/postgres.git', 'postgresql', 'Database'),
-
-  GeneralDataset('https://github.com/pjreddie/darknet.git', 'DarkNet', 'Simlulation'),
-  GeneralDataset('https://github.com/LLNL/LULESH.git', 'lulesh', 'Simlulation'),
+  # GenericDataset('https://github.com/xz-mirror/xz.git', 'xz', 'Compression'),
+  # GenericDataset('https://github.com/libarchive/bzip2.git', 'bzip2', 'Compression'),
+  #
+  # GenericDataset('https://github.com/pjreddie/darknet.git', 'DarkNet', 'Scientific Computing'),
+  LivermorecDataset('LivermoreC', 'Scientific Computing'),
+  # # GenericDataset('https://github.com/LLNL/LULESH.git', 'lulesh', 'Simlulation'),
+  #
+  # # # GenericDataset('https://github.com/sqlite/sqlite.git', 'sqlite', 'Database'),
+  # # # GenericDataset('https://github.com/postgres/postgres.git', 'postgresql', 'Database'),
 ]
 
 def store(data, filename):
@@ -87,6 +86,8 @@ class MultiProcessedTask(object):
         # Load all tasks and split them up
         tasks = self._load_tasks()
         tasks_split = self.split(tasks, self.num_tasks)
+        assert tasks == list(itertools.chain.from_iterable(tasks_split))
+
         tasks_split_indexed = [(i, s) for i, s in enumerate(tasks_split)]
 
         # Run the splits
@@ -190,7 +191,7 @@ class ExtractTask(MultiProcessedTask):
                 ds.compiler_flags
             )
             builder = ASTCodeBuilder(clang_driver)
-            sample = ds.preprocess(builder, ASTCodeVisitor)
+            sample = ds.preprocess(builder, ASTCodeVisitor, invocations)
 
             # Print
             for loop_info in sorted(builder.loop_infos, key=lambda s: s['meta']['num_tokens']):
@@ -201,8 +202,9 @@ class ExtractTask(MultiProcessedTask):
 
             loop_infos_flat = []
             for x in builder.loop_infos:
-                loop_info_flat = flatten_dict(x)
+                x['meta']['project'] = ds.name
                 x['meta']['domain'] = ds.domain
+                loop_info_flat = flatten_dict(x)
                 loop_infos_flat.append(loop_info_flat)
 
         return loop_infos_flat

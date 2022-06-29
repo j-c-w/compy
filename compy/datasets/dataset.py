@@ -61,7 +61,7 @@ class BuildSystem(Enum):
     CMAKE = 3
 
 
-class GeneralDataset(Dataset):
+class GenericDataset(Dataset):
     def __init__(self, uri, name, domain, subdir=None):
         super().__init__(name)
         self.domain = domain
