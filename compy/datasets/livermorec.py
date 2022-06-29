@@ -20,8 +20,9 @@ def get_all_src_files(content_dir):
 
 
 class LivermorecDataset(dataset.Dataset):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, name, domain):
+        super().__init__(name)
+        self.domain = domain
 
         uri = "https://www.netlib.org/benchmark/livermorec"
         self.download_http(uri)
@@ -33,7 +34,12 @@ class LivermorecDataset(dataset.Dataset):
     def get_size(self):
         return 1
 
-    def preprocess(self, builder, visitor, start_at=False, num_samples=None, randomly_select_samples=False):
+    def get_invocations(self):
+        return [True]
+
+    def preprocess(self, builder, visitor, invocations=None):
+        if not invocations:
+            return None
         filenames = get_all_src_files(self.content_dir)
         filename = filenames[0]
         with open(filename, "rb") as f:
