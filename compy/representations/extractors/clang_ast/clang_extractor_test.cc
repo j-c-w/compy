@@ -86,6 +86,11 @@ TEST_F(ClangExtractorCFixture, ExtractGraphFromStructArrays) {
 
   ASSERT_EQ(info->functionInfos.size(), 1UL);
 }
+TEST_F(ClangExtractorCFixture, ExtractGraphFromVarDefinitions) {
+  graph::ExtractionInfoPtr info = extractor_->GraphFromString(kProgram13);
+
+  ASSERT_EQ(info->functionInfos.size(), 1UL);
+}
 
 //
 // TEST_F(ClangExtractorCFixture, ExtractSeqFromFunction5) {

@@ -37,15 +37,15 @@ datasets = [
   # GenericDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg', 'Multimedia'),
   # # GenericDataset('https://github.com/opencv/opencv.git', 'opencv', 'Multimedia'),
 
-  # GenericDataset('https://github.com/xz-mirror/xz.git', 'xz', 'Compression'),
-  # GenericDataset('https://github.com/libarchive/bzip2.git', 'bzip2', 'Compression'),
-  #
-  # GenericDataset('https://github.com/pjreddie/darknet.git', 'DarkNet', 'Scientific Computing'),
+  GenericDataset('https://github.com/xz-mirror/xz.git', 'xz', 'Compression'),
+  GenericDataset('https://github.com/libarchive/bzip2.git', 'bzip2', 'Compression'),
+
+  GenericDataset('https://github.com/pjreddie/darknet.git', 'DarkNet', 'Scientific Computing'),
   LivermorecDataset('LivermoreC', 'Scientific Computing'),
-  # # GenericDataset('https://github.com/LLNL/LULESH.git', 'lulesh', 'Simlulation'),
-  #
-  # # # GenericDataset('https://github.com/sqlite/sqlite.git', 'sqlite', 'Database'),
-  # # # GenericDataset('https://github.com/postgres/postgres.git', 'postgresql', 'Database'),
+  # GenericDataset('https://github.com/LLNL/LULESH.git', 'lulesh', 'Simlulation'),
+
+  # # GenericDataset('https://github.com/sqlite/sqlite.git', 'sqlite', 'Database'),
+  # # GenericDataset('https://github.com/postgres/postgres.git', 'postgresql', 'Database'),
 ]
 
 def store(data, filename):

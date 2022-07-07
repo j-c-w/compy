@@ -58,10 +58,12 @@ class CMakeBuild(build_ext):
 
         cmake_args = ["-DPYTHON_EXECUTABLE=" + sys.executable]
 
+        #cfg = "Debug" # if self.debug else "Release"
         cfg = "Debug" if self.debug else "Release"
         build_args = ["--config", cfg]
 
         cmake_args += ["-DCMAKE_BUILD_TYPE=" + cfg]
+        #cmake_args += ["-DLLVM_DIR=/devel/git_3rd/llvm-project-10/build_debug/lib/cmake/llvm -DClang_DIR=/devel/git_3rd/llvm-project-10/build_debug/lib/cmake/clang"]
         build_args += ["--", "-j" + os.environ.get("COMPY_BUILD_JOBS", '8')]
 
         print(" ".join(cmake_args))

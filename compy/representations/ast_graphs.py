@@ -240,9 +240,27 @@ class ASTCodeBuilder(RepresentationBuilder):
 
         # Extract loops
         loops = self.match_loops(functionInfo.entryStmt)
-        self.loop_infos += self.loops_to_infos(loops, meta)
+        next_stmts = self.get_next_stmts(functionInfo.entryStmt)
+        self.loop_infos += self.loops_to_infos(loops, next_stmts, meta)
 
         return self.loop_infos
+
+    def get_next_stmts(self, root_stmt):
+        next_stmts = {}
+        queue = [root_stmt]
+        while queue:
+            stmt = queue.pop(0)
+
+            if hasattr(stmt, 'ast_relations'):
+                prev = None
+                for s in stmt.ast_relations:
+                    if prev:
+                        next_stmts[prev] = s
+                    prev = s
+
+                    queue.append(s)
+
+        return next_stmts
 
     def match_loops(self, root_stmt, depth_min=1):
         def collect_loop_sequences(stmt, current_chain = []):
@@ -305,7 +323,7 @@ class ASTCodeBuilder(RepresentationBuilder):
 
         return depth_by_loop
 
-    def loops_to_infos(self, loops, meta):
+    def loops_to_infos(self, loops, next_stmts, meta):
         def get_referenced_records(root_record):
             visited = [root_record]
             todo = [root_record]
@@ -453,9 +471,11 @@ class ASTCodeBuilder(RepresentationBuilder):
 
             return list(set(undef_vars))
 
-        def define_undef_vars(stmt, enum_decls):
+        def define_undef_vars(stmt, next_stmts, enum_decls):
             stmts = get_undef_vars(stmt)
-            undef_vars = []
+
+            decls = []
+            defs = []
 
             for ref_stmt in stmts:
                 if ref_stmt.kind == 'Function':
@@ -463,6 +483,13 @@ class ASTCodeBuilder(RepresentationBuilder):
                     undef_var_str = '%s %s %s' % (ref_stmt.type[0:args_start_idx], ref_stmt.name, ref_stmt.type[args_start_idx:])
 
                 else:
+                    if ref_stmt.name in ''.join(enum_decls) and ref_stmt.name.isupper():
+                        continue
+
+                    if 'anonymous struct' in ref_stmt.type:
+                        continue
+
+                    # Declaration
                     if '(*)' in ref_stmt.type:
                         undef_var_str = ref_stmt.type.replace('(*)', '(*' + ref_stmt.name + ')')
                     elif '[' in ref_stmt.type:
@@ -470,15 +497,15 @@ class ASTCodeBuilder(RepresentationBuilder):
                     else:
                         undef_var_str = '%s %s' % (ref_stmt.type, ref_stmt.name)
 
-                    if ref_stmt.name in ''.join(enum_decls) and ref_stmt.name.isupper():
-                        continue
+                    # Definition
+                    if ref_stmt in next_stmts and next_stmts[ref_stmt].name in ['IntegerLiteral', 'FloatingLiteral'] and len(next_stmts[ref_stmt].tokens) == 1:
+                        next_stmt = next_stmts[ref_stmt]
+                        undef_var_str += ' = %s;' % tokens_to_str(next_stmt.tokens)
+                        defs.append(undef_var_str)
+                    else:
+                        decls.append(undef_var_str)
 
-                    if 'anonymous struct' in ref_stmt.type:
-                        continue
-
-                undef_vars.append(undef_var_str)
-
-            return list(set(undef_vars))
+            return list(set(decls)), list(set(defs))
 
         def indent(c_unindented):
             result = subprocess.run(['indent'], input=c_unindented, capture_output=True, text=True)
@@ -508,7 +535,7 @@ class ASTCodeBuilder(RepresentationBuilder):
 
             # Define undefined variables
             enums = declare_enums_used_in_records(undef_recs)
-            vars = define_undef_vars(loop, enums)
+            decls, defs = define_undef_vars(loop, next_stmts, enums)
 
             # fns = declare_functions_used_in_records(undef_recs)
             # for ut in fns:
@@ -517,8 +544,8 @@ class ASTCodeBuilder(RepresentationBuilder):
 
             # Function
             body_token_list = get_tokens(loop)
-            body = tokens_to_str(body_token_list)
-            function = 'int fn(' + ', '.join(vars) + ') { ' + body + ' }'
+            body = '\n'.join(defs) + tokens_to_str(body_token_list)
+            function = 'int fn(' + ', '.join(decls) + ') { ' + body + ' }'
 
             src = indent(includes + '\n\n'
                          + '\n'.join(enums) + '\n\n'

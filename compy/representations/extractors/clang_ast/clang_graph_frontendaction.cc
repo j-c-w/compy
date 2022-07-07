@@ -23,16 +23,17 @@ namespace graph {
 bool ExtractorASTVisitor::VisitStmt(Stmt *s) {
   // Collect child stmts
   std::vector<OperandInfoPtr> ast_relations;
-  for (auto it : s->children()) {
-    if (it) {
-      StmtInfoPtr childInfo = getInfo(*it);
-      ast_relations.push_back(childInfo);
-    }
-  }
 
   if (auto *ds = dyn_cast<DeclStmt>(s)) {
     for (const Decl *decl : ds->decls()) {
       ast_relations.push_back(getInfo(*decl, false));
+    }
+  }
+
+  for (auto it : s->children()) {
+    if (it) {
+      StmtInfoPtr childInfo = getInfo(*it);
+      ast_relations.push_back(childInfo);
     }
   }
 

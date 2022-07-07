@@ -211,3 +211,21 @@ def test_code_builder_compile_anonymous_extern_struct():
 
     assert all([r['meta']['clang_returncode'] is 0 for r in reps]) is True
 
+
+def test_code_builder_constants():
+    src = """
+    int* foo (int x, int* y) {
+      int bar = 1337;
+    
+      for (int i=0; i<x; i++) {
+        y[x] += bar;
+      }
+      return y;
+    }
+    """
+    reps = build_compilable_code(src)
+    print(reps)
+
+    assert all([r['meta']['clang_returncode'] is 0 for r in reps]) is True
+    assert len(reps) is 1
+    assert "int bar = 1337;" in reps[0]['body']
