@@ -1,6 +1,9 @@
 import itertools
 import networkx as nx
 import subprocess
+import os
+import sys
+import multiprocessing
 
 from compy.representations import RepresentationBuilder
 from compy.representations.extractors import clang_driver_scoped_options
@@ -507,6 +510,16 @@ class ASTCodeBuilder(RepresentationBuilder):
 
             return list(set(decls)), list(set(defs))
 
+        def get_param_vars(stmt):
+            ret = []
+            for s in stmt.ast_relations:
+                if hasattr(s, 'ref_relations'):
+                    for r in s.ref_relations:
+                        if r.kind == 'ParmVar':
+                            ret.append(r.name)
+                    ret += get_param_vars(s)
+            return ret
+
         def indent(c_unindented):
             result = subprocess.run(['indent'], input=c_unindented, capture_output=True, text=True)
             return result.stdout
@@ -515,6 +528,42 @@ class ASTCodeBuilder(RepresentationBuilder):
             p1 = subprocess.Popen(['clang', '-x', 'c', '-c', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             p1_out = p1.communicate(input=src.encode())[0]
             return p1.returncode
+
+        def run_check(src):
+            if 'remove(' in src:
+                return -1337
+
+            process = multiprocessing.current_process()
+            exe_filename = os.path.join('/tmp', str(process.pid) + '.out')
+            src_filename = os.path.join('/tmp', str(process.pid) + '.c')
+
+            def cleanup():
+                if os.path.isfile(exe_filename):
+                    os.remove(exe_filename)
+                if os.path.isfile(src_filename):
+                    os.remove(src_filename)
+
+            with open(src_filename, 'wb') as f:
+                f.write(src.encode())
+
+            p1 = subprocess.Popen(' '.join(['clang', '-o', exe_filename, src_filename]), shell=True)
+            p1.wait()
+            if p1.returncode != 0:
+                cleanup()
+                return p1.returncode
+
+            if not os.path.isfile(exe_filename):
+                cleanup()
+                return 1
+
+            print(exe_filename)
+            p2 = subprocess.Popen([exe_filename], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            p2_out = p2.communicate()[0]
+            if p2.returncode != 0:
+                print(p2_out, file=sys.stderr)
+            cleanup()
+
+            return p2.returncode
 
         loop_infos = []
         for loop, depth in loops.items():
@@ -552,17 +601,54 @@ class ASTCodeBuilder(RepresentationBuilder):
                          + '\n'.join(types) + '\n\n'
                          + function)
 
+            # Function call
+            param_vars = get_param_vars(loop)
+
+
+            defs = []
+            for decl in list(set(decls)):
+                decl_name = ' '.join(decl.split(' ')[-1:])
+                decl_type = ' '.join(decl.split(' ')[:-1])
+
+                val = '32' if decl_name in param_vars else '8'
+
+                if decl_type == 'int':
+                    defi = decl_type + ' ' + decl_name + ' = ' + val + ';'
+                elif decl_type == 'float':
+                    defi = decl_type + ' ' + decl_name + ' = 1;'
+                elif decl_type.count('*') > 0:
+                    array_dim = decl_type.count('*')
+                    defi = decl_type.split(' ')[0] + ' ' + decl_name + ('[' + '1024' + ']')*array_dim \
+                           + ' = ' + '{'*array_dim + '1' + '}'*array_dim + ';'
+                else:
+                    defi = decl_type + ' ' + decl_name + ';'
+
+                defs.append(defi)
+
+            args = []
+            for decl in decls:
+                decl_name = ' '.join(decl.split(' ')[-1:])
+                args.append(decl_name)
+
+            call = 'int main() {\n' \
+                   + '\n'.join(['  ' + d for d in defs]) + '\n\n' \
+                   + '  fn(' + ', '.join(args) + ');\n\n' \
+                   + '  return 0;\n' \
+                   + '}'
+            src_with_call = src + '\n' + call
             print('/' * 80)
-            print(src)
+            print(src_with_call)
 
             loop_info = {
                 'meta': {
                     'max_loop_depth': depth,
                     'num_tokens': len(body_token_list),
                     'stmt_counts': get_statement_counts(loop),
-                    'clang_returncode': compile_check(src)
+                    'clang_returncode': compile_check(src),
+                    'clang_and_run_returncode': run_check(src_with_call)
                 },
                 'src': src,
+                'src_with_call': src_with_call,
                 'body': indent(body)
             }
             loop_info.update(meta)

@@ -32,12 +32,12 @@ datasets = [
   # GenericDataset('https://github.com/libav/libav.git', 'libav', 'Multimedia'),
   # GenericDataset('https://github.com/mirror/x264.git', 'x264', 'Multimedia'),
   # GenericDataset('https://github.com/ImageMagick/ImageMagick.git', 'ImageMagick', 'Multimedia'),
-  # GenericDataset('https://github.com/WinMerge/freeimage.git', 'freeimage', 'Multimedia'),
+  GenericDataset('https://github.com/WinMerge/freeimage.git', 'freeimage', 'Multimedia'),
   # GenericDataset('https://github.com/DentonW/DevIL.git', 'DevIL', 'Multimedia', subdir='DevIL'),
-  # GenericDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg', 'Multimedia'),
+  GenericDataset('https://github.com/FFmpeg/FFmpeg.git', 'ffmpeg', 'Multimedia'),
   # # GenericDataset('https://github.com/opencv/opencv.git', 'opencv', 'Multimedia'),
 
-  GenericDataset('https://github.com/xz-mirror/xz.git', 'xz', 'Compression'),
+  # GenericDataset('https://github.com/xz-mirror/xz.git', 'xz', 'Compression'),
   GenericDataset('https://github.com/libarchive/bzip2.git', 'bzip2', 'Compression'),
 
   GenericDataset('https://github.com/pjreddie/darknet.git', 'DarkNet', 'Scientific Computing'),
@@ -255,7 +255,7 @@ class ReduceTask(MultiProcessedTask):
 
         if is_new_table:
             int_cols = ', '.join([x + ' INT' for x in int_keys])
-            cmd = 'CREATE TABLE IF NOT EXISTS loops(src TEXT, body TEXT, filename TEXT, dataset_name TEXT, ' + int_cols + ')'
+            cmd = 'CREATE TABLE IF NOT EXISTS loops(src TEXT, src_with_call TEXT, body TEXT, filename TEXT, dataset_name TEXT, ' + int_cols + ')'
             print(cmd)
             c.execute(cmd)
         else:
