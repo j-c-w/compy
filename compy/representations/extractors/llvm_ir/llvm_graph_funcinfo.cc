@@ -207,7 +207,7 @@ bool FunctionInfoPass::runOnFunction(::llvm::Function &func) {
 
   info_->name = getUniqueName(func);
   info_->entryInstruction =
-      getInfo(*func.getEntryBlock().getInstList().begin());
+      getInfo(*func.getEntryBlock().getFirstNonPHIOrDbg());
 
   std::string rtypeName;
   raw_string_ostream rso(rtypeName);
@@ -215,7 +215,7 @@ bool FunctionInfoPass::runOnFunction(::llvm::Function &func) {
   info_->type = rso.str();
 
   // collect all basic blocks and their instructions
-  for (auto &bb : func.getBasicBlockList()) {
+  for (auto &bb : func) {
     BasicBlockInfoPtr bbInfo = getInfo(bb);
     for (auto &inst : bb) {
       bbInfo->instructions.push_back(getInfo(inst));
@@ -231,7 +231,7 @@ bool FunctionInfoPass::runOnFunction(::llvm::Function &func) {
   // dump app memory accesses
   auto &mssaPass = getAnalysis<MemorySSAWrapperPass>();
   auto &mssa = mssaPass.getMSSA();
-  for (auto &bb : func.getBasicBlockList()) {
+  for (auto &bb : func) {
     // live on entry
     auto entry = mssa.getLiveOnEntryDef();
     info_->memoryAccesses.push_back(getInfo(*entry));

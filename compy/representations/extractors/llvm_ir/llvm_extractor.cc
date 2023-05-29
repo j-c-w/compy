@@ -7,9 +7,12 @@
 #include "clang/Lex/PreprocessorOptions.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Transforms/IPO/StripSymbols.h"
 
 #include "llvm_graph_pass.h"
 #include "llvm_seq_pass.h"
+#include <llvm/IR/PassManager.h>
+#include <llvm/Transforms/IPO/StripSymbols.h>
 
 using namespace ::clang;
 using namespace ::llvm;
@@ -24,7 +27,7 @@ graph::ExtractionInfoPtr LLVMIRExtractor::GraphFromString(std::string src) {
   std::vector<::clang::FrontendAction *> frontendActions;
   std::vector<::llvm::Pass *> passes;
 
-  passes.push_back(createStripSymbolsPass());
+  // passes.push_back(createStripSymbolsPass());
 
   graph::ExtractorPass *extractorPass = new graph::ExtractorPass();
   passes.push_back(extractorPass);
@@ -38,7 +41,7 @@ seq::ExtractionInfoPtr LLVMIRExtractor::SeqFromString(std::string src) {
   std::vector<::clang::FrontendAction *> frontendActions;
   std::vector<::llvm::Pass *> passes;
 
-  passes.push_back(createStripSymbolsPass());
+  // passes.push_back(createStripSymbolsPass());
   seq::ExtractorPass *pass = new seq::ExtractorPass();
   passes.push_back(pass);
 

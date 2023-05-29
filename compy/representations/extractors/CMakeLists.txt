@@ -7,6 +7,7 @@ set(compile_options_common
         # Clang warnings
         -Wno-comment -Wno-strict-aliasing)
 
+find_package(LLVM 17 HINTS "llvm-install")
 # Common library
 add_library(extractors_common
         common/clang_driver.cc)
@@ -37,9 +38,15 @@ target_include_directories(extractors_common PUBLIC
 
 # if tools are linked against llvm shared object, we need to do the same
 # otherwise, we end up with two versions (shared and static) of llvm libs
-if(LLVM_LINK_LLVM_DYLIB)
-        set(REQ_LLVM_LIBRARIES LLVM)
-endif()
+# if(LLVM_LINK_LLVM_DYLIB)
+set(REQ_LLVM_LIBRARIES LLVMCodeGen)
+set(REQ_LLVM_LIBRARIES LLVMObjCARCOpts)
+set(REQ_LLVM_LIBRARIES LLVMTransformUtils)
+set(REQ_LLVM_LIBRARIES LLVMAnalysis)
+set(REQ_LLVM_LIBRARIES LLVMCore)
+set(REQ_LLVM_LIBRARIES LLVMSupport)
+
+# endif()
 
 # if clang is built as a shared lib, use that, otherwise link to the static components
 if(DEFINED CLANG_LINK_CLANG_DYLIB AND CLANG_LINK_CLANG_DYLIB)
@@ -50,7 +57,7 @@ endif()
 
 target_link_libraries(extractors_common
         -Wl,--start-group
-        ${REQ_LLVM_LIBRARIES}
+        ${LLVM_LIBRARIES}
         ${REQ_CLANG_LIBRARIES}
         -Wl,--end-group
         )
@@ -68,6 +75,7 @@ target_link_libraries(extractors_common_tests
         gmock
         gtest
         gtest_main
+        REQ_LLVM_LIBRARIES
         )
 target_compile_options(extractors_common_tests PRIVATE
         -fno-rtti -fPIC

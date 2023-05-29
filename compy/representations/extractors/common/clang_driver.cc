@@ -33,7 +33,7 @@ using namespace ::llvm;
 
 namespace compy {
 
-static void LLVMErrorHandler(void *UserData, const std::string &Message,
+static void LLVMErrorHandler(void *UserData, const char *Message,
                              bool GenCrashDiag) {
   DiagnosticsEngine &Diags = *static_cast<DiagnosticsEngine *>(UserData);
 
@@ -176,9 +176,17 @@ void ClangDriver::InvokeClangAndLLVM(std::string& src,
       new DiagnosticsEngine(DiagID, &*DiagOpts, DiagsBuffer);
 
   // Initialize CompilerInvocation.
+  CreateInvocationOptions opts = {
+      Diags,
+      nullptr,
+      true,
+      false,
+      nullptr
+  };
   const std::shared_ptr<CompilerInvocation> invocation =
-      createInvocationFromCommandLine(ArrayRef<const char *>(args), Diags,
-                                      nullptr, true);
+      createInvocation(ArrayRef<const char *>(args), opts);
+      // createInvocationFromCommandLine(ArrayRef<const char *>(args), Diags,
+                                      // nullptr, true);
   if (!invocation) {
     for (auto I = DiagsBuffer->err_begin(), E = DiagsBuffer->err_end(); I != E;
          ++I)

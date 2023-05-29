@@ -103,7 +103,8 @@ CFGBlockInfoPtr ExtractorASTVisitor::getInfo(const ::clang::CFGBlock &block) {
   // Collect statements.
   for (CFGBlock::const_iterator it = block.begin(), Es = block.end(); it != Es;
        ++it) {
-    if (Optional<CFGStmt> CS = it->getAs<CFGStmt>()) {
+      auto CS = it->getAs<CFGStmt>();
+    if (CS) {
       const Stmt *S = CS->getStmt();
       info->statements.push_back(getInfo(*S));
     }

@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.12)
 project(gnns4code_native)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
-find_package(LLVM 10)
+find_package(LLVM 17 HINTS "llvm-install")
 
 # prefer Clang matching LLVM
-find_package(Clang HINTS "${LLVM_CMAKE_DIR}/../clang")
+# find_package(Clang HINTS "llvm-install/")
 
 include(FetchContent)
 
