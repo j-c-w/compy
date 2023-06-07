@@ -65,6 +65,8 @@ def explore_cfg_with_dfs(graph, start_node):
     explored = []
     while len(to_explore):
         node = to_explore.pop(0)
+        if node in explored:
+          continue
         explored.append(node)
 
         for u, v, data in graph.G.out_edges(node, data=True):

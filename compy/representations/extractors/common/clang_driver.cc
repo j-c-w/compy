@@ -284,7 +284,7 @@ void ClangDriver::runLLVMPasses(std::unique_ptr<::llvm::Module> Module,
   PassRegistry &reg = *PassRegistry::getPassRegistry();
   initializeCallGraphWrapperPassPass(reg);
   initializeMemorySSAWrapperPassPass(reg);
-  initializeStripSymbolsPass(reg);
+  // initializeStripSymbolsPass(reg);
 
   // Setup the pass manager and add passes.
   pm_.reset(new legacy::PassManager());
