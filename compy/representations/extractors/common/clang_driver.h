@@ -21,7 +21,7 @@ class ClangDriver {
     LLVM = 4,
   };
 
-  enum OptimizationLevel { O0 = 0, O1 = 1, O2 = 2, O3 = 3 };
+  enum OptimizationLevel { O0 = 0, O1 = 1, O2 = 2, O3 = 3, Unspecified = 4};
 
   enum IncludeDirType {
     SYSTEM = 0,
@@ -32,6 +32,8 @@ class ClangDriver {
   ClangDriver(ProgrammingLanguage programmingLanguage,
               OptimizationLevel optimizationLevel,
               std::vector<std::tuple<std::string, IncludeDirType>> includeDirs,
+              std::vector<std::string> compilerFlags);
+  ClangDriver(ProgrammingLanguage programmingLanguage,
               std::vector<std::string> compilerFlags);
 
   void addIncludeDir(std::string includeDir, IncludeDirType includeDirType);
@@ -47,7 +49,7 @@ class ClangDriver {
               std::vector<::llvm::Pass *> passes);
 
  private:
-  void InvokeClangAndLLVM(std::string& src,
+  void InvokeClangAndLLVM(std::string *src,
                           std::vector<::clang::FrontendAction *>& frontendActions,
                           std::vector<::llvm::Pass *>& passes);
   void InvokeLLVM(std::string& src,
@@ -66,5 +68,11 @@ class ClangDriver {
   std::string compilerBinary_;
 };
 using ClangDriverPtr = std::shared_ptr<ClangDriver>;
+
+class SimpleClangDriver : public ClangDriver {
+    public:
+        SimpleClangDriver(std::vector<std::string> compilerFlags);
+        ClangDriver getThis();
+};
 
 }  // namespace compy

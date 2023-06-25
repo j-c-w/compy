@@ -15,6 +15,7 @@ namespace lg = compy::llvm::graph;
 namespace ls = compy::llvm::seq;
 
 using CD = compy::ClangDriver;
+using SCD = compy::SimpleClangDriver;
 using CE = compy::clang::ClangExtractor;
 using LE = compy::llvm::LLVMIRExtractor;
 
@@ -78,6 +79,29 @@ class PyVisitor : public IVisitor {
   }
 };
 
+void registerSimpleClangDriver(py::module m) {
+  py::class_<SCD, std::shared_ptr<SCD>> simpleClangDriver(m, "SimpleClangDriver");
+  simpleClangDriver
+      .def(py::init<// SCD::ProgrammingLanguage, // TODO --- put this back in.
+                    std::vector<std::string>>())
+      /* .def("addIncludeDir", &SCD::addIncludeDir) */
+      /* .def("removeIncludeDir", &SCD::removeIncludeDir) */
+      /* .def("getFileName", &SCD::getFileName) */
+      /* .def("setFileName", &SCD::setFileName) */
+      .def("getCompilerBinary", &SCD::getCompilerBinary)
+      .def("setCompilerBinary", &SCD::setCompilerBinary)
+      .def("getThis", &SCD::getThis);
+
+  // Seems to name-clash --- it's the same as the clangdriver one --- just use that.
+  // (inherited from ClangDriver)
+  /* py::enum_<SCD::ProgrammingLanguage>(simpleClangDriver, "SimpleProgrammingLanguage") */
+  /*     .value("C", SCD::ProgrammingLanguage::C) */
+  /*     .value("CPlusPlus", SCD::ProgrammingLanguage::CPLUSPLUS) */
+  /*     .value("OpenCL", SCD::ProgrammingLanguage::OPENCL) */
+  /*     .value("LLVM", SCD::ProgrammingLanguage::LLVM) */
+  /*     .export_values(); */
+}
+
 void registerClangDriver(py::module m) {
   py::class_<CD, std::shared_ptr<CD>> clangDriver(m, "ClangDriver");
   clangDriver
@@ -103,6 +127,7 @@ void registerClangDriver(py::module m) {
       .value("O1", CD::OptimizationLevel::O1)
       .value("O2", CD::OptimizationLevel::O2)
       .value("O3", CD::OptimizationLevel::O3)
+      .value("Unspecified", CD::OptimizationLevel::Unspecified)
       .export_values();
 
   py::enum_<CD::IncludeDirType>(clangDriver, "IncludeDirType")
@@ -293,6 +318,7 @@ PYBIND11_MODULE(extractors, m) {
 
   py::class_<IVisitor, PyVisitor>(m, "Visitor").def(py::init<>());
 
+  registerSimpleClangDriver(m);
   registerClangDriver(m);
 
   registerClangExtractor(m);

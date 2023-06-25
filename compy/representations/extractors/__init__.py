@@ -6,7 +6,7 @@ import subprocess
 import warnings
 from typing import Optional
 
-from .extractors import ClangDriver, LLVM_VERSION
+from .extractors import ClangDriver, LLVM_VERSION, SimpleClangDriver
 del extractors # HACK: don't override extractors
 
 

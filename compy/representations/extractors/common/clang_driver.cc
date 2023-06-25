@@ -75,6 +75,18 @@ ClangDriver::ClangDriver(
   }
 }
 
+ClangDriver::ClangDriver(
+        ProgrammingLanguage programmingLanguage,
+        std::vector<std::string> compilerFlags):
+            programmingLanguage_(programmingLanguage),
+            compilerFlags_(compilerFlags),
+            compilerBinary_("clang"),
+            optimizationLevel_(OptimizationLevel::Unspecified),
+            fileName_("") {
+                includeDirs_ = std::vector<std::tuple<std::string, IncludeDirType>>();
+
+}
+
 void ClangDriver::addIncludeDir(std::string includeDir,
                                 IncludeDirType includeDirType) {
   includeDirs_.insert(includeDirs_.begin(),
@@ -112,7 +124,7 @@ void ClangDriver::Invoke(std::string src,
     case ProgrammingLanguage::C:
     case ProgrammingLanguage::CPLUSPLUS:
     case ProgrammingLanguage::OPENCL:
-      InvokeClangAndLLVM(src, frontendActions, passes);
+      InvokeClangAndLLVM(&src, frontendActions, passes);
       break;
     case ProgrammingLanguage::LLVM:
       InvokeLLVM(src, passes);
@@ -120,16 +132,23 @@ void ClangDriver::Invoke(std::string src,
   }
 }
 
-void ClangDriver::InvokeClangAndLLVM(std::string& src,
+// note that src is optionally null.
+void ClangDriver::InvokeClangAndLLVM(std::string *src,
                                      std::vector<::clang::FrontendAction *>& frontendActions,
                                      std::vector<::llvm::Pass *>& passes) {
-  const char *filename = fileName_.c_str();
 
-  auto code = src.c_str();
+  const char *code = nullptr;
+  if (src != nullptr) {
+    code = src->c_str();
+  }
 
   std::vector<const char *> args;
   args.push_back(compilerBinary_.c_str());
-  args.push_back(filename);
+  const char *filename;
+  if (fileName_.compare("")) {
+      filename = fileName_.c_str();
+      args.push_back(filename);
+  }
 
   // Optimization level.
   const char *optimizationLevelChr;
@@ -146,8 +165,12 @@ void ClangDriver::InvokeClangAndLLVM(std::string& src,
     case OptimizationLevel::O3:
       optimizationLevelChr = "-O3";
       break;
+    case OptimizationLevel::Unspecified:
+      optimizationLevelChr = 0;
   }
-  args.push_back(optimizationLevelChr);
+  if (optimizationLevelChr) {
+      args.push_back(optimizationLevelChr);
+  }
 
   // Additional flags.
   for (auto &&flag : compilerFlags_) {
@@ -199,12 +222,15 @@ void ClangDriver::InvokeClangAndLLVM(std::string& src,
 
   Clang->setInvocation(invocation);
 
-  // Map code filename to a memoryBuffer.
-  StringRef codeData(code);
-  std::unique_ptr<MemoryBuffer> buffer =
-      MemoryBuffer::getMemBufferCopy(codeData);
-  Clang->getInvocation().getPreprocessorOpts().addRemappedFile(
-      filename, buffer.release());
+  // Map code filename to a memoryBuffer if we are using
+  // raw code as an input.
+  if (code) {
+      StringRef codeData(code);
+      std::unique_ptr<MemoryBuffer> buffer =
+          MemoryBuffer::getMemBufferCopy(codeData);
+      Clang->getInvocation().getPreprocessorOpts().addRemappedFile(
+          filename, buffer.release());
+  }
 
   // Add include paths.
   for (auto includeDir : includeDirs_) {
@@ -294,6 +320,14 @@ void ClangDriver::runLLVMPasses(std::unique_ptr<::llvm::Module> Module,
 
   // Run passes.
   pm_->run(*Module);
+}
+
+SimpleClangDriver::SimpleClangDriver(std::vector<std::string> compilerFlags): ClangDriver(ClangDriver::ProgrammingLanguage::C, compilerFlags) {
+
+}
+
+ClangDriver SimpleClangDriver::getThis() {
+    return this;
 }
 
 }  // namespace compy
