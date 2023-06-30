@@ -72,7 +72,6 @@ using ClangDriverPtr = std::shared_ptr<ClangDriver>;
 class SimpleClangDriver : public ClangDriver {
     public:
         SimpleClangDriver(std::vector<std::string> compilerFlags);
-        ClangDriver getThis();
 };
 
 }  // namespace compy

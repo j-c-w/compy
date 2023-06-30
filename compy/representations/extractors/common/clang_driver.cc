@@ -325,9 +325,4 @@ void ClangDriver::runLLVMPasses(std::unique_ptr<::llvm::Module> Module,
 SimpleClangDriver::SimpleClangDriver(std::vector<std::string> compilerFlags): ClangDriver(ClangDriver::ProgrammingLanguage::C, compilerFlags) {
 
 }
-
-ClangDriver SimpleClangDriver::getThis() {
-    return this;
-}
-
 }  // namespace compy

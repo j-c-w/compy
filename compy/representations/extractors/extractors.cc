@@ -89,8 +89,7 @@ void registerSimpleClangDriver(py::module m) {
       /* .def("getFileName", &SCD::getFileName) */
       /* .def("setFileName", &SCD::setFileName) */
       .def("getCompilerBinary", &SCD::getCompilerBinary)
-      .def("setCompilerBinary", &SCD::setCompilerBinary)
-      .def("getThis", &SCD::getThis);
+      .def("setCompilerBinary", &SCD::setCompilerBinary);
 
   // Seems to name-clash --- it's the same as the clangdriver one --- just use that.
   // (inherited from ClangDriver)
