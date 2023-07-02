@@ -133,7 +133,6 @@ def max_depth(stmt, stmt_name):
 
     return count
 
-
 class ASTVisitor(Visitor):
     def __init__(self):
         Visitor.__init__(self)
