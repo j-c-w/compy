@@ -14,7 +14,6 @@ from compy.representations.ast_graphs import ASTCodeVisitor
 COMPILER='clang'
 
 def run_clang(clang_args):
-    breakpoint()
     subprocess.Popen([COMPILER] + clang_args)
 
 # Process the output of clang -### into a list.
@@ -134,7 +133,8 @@ def main():
                 sample = builder.info_to_representation(functionInfo, visitor, metadata)
                 samples.append(sample)
 
-        print("Ran Extractor")
+        print("Ran Extractor (found " + str(len(samples)) + " samples)")
+        # print(samples) # TODO -- save these in a file
 
         # If interactive mode, then wait for update signal here
         # before running the clang compiler.
