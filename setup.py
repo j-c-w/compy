@@ -23,6 +23,7 @@ install_requires = [
     "appdirs",
     "pandas",
     "tqdm",
+    "py"
 ]
 tests_require = ["pytest", "pytest-cov"]
 
