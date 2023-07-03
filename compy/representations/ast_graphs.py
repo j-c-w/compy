@@ -524,7 +524,7 @@ class ASTCodeBuilder(RepresentationBuilder):
             return result.stdout
 
         def compile_check(src):
-            p1 = subprocess.Popen(['clang', '-x', 'c', '-c', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            p1 = subprocess.Popen(['clang', '-x', 'c', '-c', '-o/dev/null', '-'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
             p1_out = p1.communicate(input=src.encode())[0]
             return p1.returncode
 

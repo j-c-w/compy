@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import shutil
 
 from compy.representations.extractors.extractors import SimpleClangDriver, ClangDriver
 from compy.representations.extractors.extractors import ClangExtractor
@@ -11,10 +12,23 @@ from compy.representations.extractors.extractors import llvm
 from compy.representations.ast_graphs import ASTCodeBuilder
 from compy.representations.ast_graphs import ASTCodeVisitor
 
+OUTPUT_FOLDER='extractor_output'
 COMPILER='clang'
 
+# Run original clang to produce required build files for rest of
+# the build process.
 def run_clang(clang_args):
     subprocess.Popen([COMPILER] + clang_args)
+
+def output_samples(samples):
+    if os.path.exists(OUTPUT_FOLDER):
+        shutil.rmtree(OUTPUT_FOLDER)
+    os.makedirs(OUTPUT_FOLDER)
+
+    sample_number = 0
+    for sample in samples:
+        with open(OUTPUT_FOLDER + '/' + str(sample_number) + '.c', 'w') as f:
+            f.write(str(sample[0]['src']))
 
 # Process the output of clang -### into a list.
 def get_extra_includes(hash_output):
@@ -69,6 +83,9 @@ def main():
             # TODO --- that arg should probably be
             # a flag with an argument pointing to
             # a python class to run an extractor.
+        elif arg == "--extractor-output":
+            OUTPUT_FOLDER = sys.argv[ind + 1]
+            ind += 1
         elif arg == "--interactive":
             interactive_mode = True
         elif arg == "--compiler":
@@ -134,7 +151,7 @@ def main():
                 samples.append(sample)
 
         print("Ran Extractor (found " + str(len(samples)) + " samples)")
-        # print(samples) # TODO -- save these in a file
+        output_samples(samples)
 
         # If interactive mode, then wait for update signal here
         # before running the clang compiler.
